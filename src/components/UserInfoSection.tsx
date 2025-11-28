@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Lunar } from 'lunar-javascript';
 import { X } from 'lucide-react';
 
@@ -9,9 +10,11 @@ import type { ZodiacFortune } from '../data/zodiacFortunes';
 
 const UserInfoSection: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const navigate = useNavigate();
     const [nickname, setNickname] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [email, setEmail] = useState('');
+    const [subscribed, setSubscribed] = useState(false);
     const [errors, setErrors] = useState<{ email?: string; date?: string }>({});
     const [zodiacReport, setZodiacReport] = useState<{ zodiac: string; fortune: ZodiacFortune } | null>(null);
     const [showModal, setShowModal] = useState(false);
@@ -60,6 +63,19 @@ const UserInfoSection: React.FC = () => {
                     zodiac: zodiacKey,
                     fortune: zodiacFortunes[zodiacKey]
                 });
+
+                // TODO: Send subscription data to backend API
+                if (subscribed) {
+                    console.log('Subscription data:', {
+                        email,
+                        nickname,
+                        birthDate,
+                        zodiac: zodiacKey,
+                        subscribed: true
+                    });
+                    // Future: Call API to save subscription
+                    // await subscriptionService.subscribe({ email, nickname, birthDate, zodiac: zodiacKey });
+                }
             }
         }
     };
@@ -74,23 +90,17 @@ const UserInfoSection: React.FC = () => {
     const displayName = nickname || (currentLang === 'zh' ? '亲爱的你' : 'Dear you');
 
     return (
-        <section className="min-h-screen py-20 px-4 sm:px-6 lg:px-8 flex items-center bg-background-light dark:bg-background-dark" id="page2">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                <div className="text-center lg:text-left">
-                    <p className="text-xl md:text-2xl leading-relaxed text-gray-700 dark:text-gray-300 mb-8 font-medium">
-                        {t('userInfo.description')}
-                    </p>
-                    <div className="flex justify-center lg:justify-start">
-                        <img
-                            alt="Woman meditating"
-                            className="w-64 h-auto object-contain"
-                            src="/meditation-woman.png"
-                        />
-                    </div>
+        <section className="min-h-screen py-20 px-4 sm:px-6 lg:px-8 flex items-center bg-background-light dark:bg-background-dark" id="user-info">
+            <div className="max-w-3xl mx-auto w-full">
+                <div className="text-center mb-10">
+                    <h1 className="text-3xl sm:text-4xl font-bold font-display text-gray-800 dark:text-white mb-6 leading-tight whitespace-pre-line">
+                        {t('userInfo.mainTitle')}
+                    </h1>
                 </div>
+
                 <div className="bg-white dark:bg-gray-900/50 p-8 sm:p-10 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-                    <h2 className="text-2xl font-bold font-display text-gray-800 dark:text-white mb-4">{t('userInfo.title')}</h2>
-                    <p className="text-gray-600 dark:text-gray-400 mb-8">{t('userInfo.subtitle')}</p>
+                    <h2 className="text-2xl font-bold font-display text-gray-800 dark:text-white mb-4 text-center">{t('userInfo.title')}</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-8 text-center max-w-2xl mx-auto">{t('userInfo.subtitle')}</p>
                     <form onSubmit={handleSend} className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="nickname">
@@ -136,30 +146,49 @@ const UserInfoSection: React.FC = () => {
                             />
                             {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <button
-                                type="submit"
-                                className="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
-                            >
-                                {t('userInfo.send')}
-                            </button>
-                            {zodiacReport && (
+
+                        {/* Subscription Note */}
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
+                                {t('userInfo.subscriptionNote')}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            {!zodiacReport ? (
                                 <button
-                                    type="button"
-                                    onClick={handlePreview}
-                                    className="flex-1 flex justify-center py-3 px-4 border border-primary rounded-md shadow-sm text-sm font-medium text-primary bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                    type="submit"
+                                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
                                 >
-                                    {t('userInfo.preview')}
+                                    {t('userInfo.send')}
                                 </button>
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigate('/consultation', {
+                                                state: {
+                                                    name: nickname,
+                                                    birthDate: birthDate,
+                                                    email: email
+                                                }
+                                            });
+                                        }}
+                                        className="w-full flex justify-center py-4 px-6 border border-transparent rounded-full shadow-lg text-lg font-bold text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 transform hover:scale-105 transition-all duration-300 animate-pulse"
+                                    >
+                                        {t('userInfo.startJourney')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handlePreview}
+                                        className="w-full flex justify-center py-3 px-4 border border-primary rounded-md shadow-sm text-sm font-medium text-primary bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                    >
+                                        {t('userInfo.reportReady')}
+                                    </button>
+                                </div>
                             )}
                         </div>
-                        {zodiacReport && (
-                            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                                <p className="text-sm text-green-800 dark:text-green-200 text-center">
-                                    {zodiacReport.fortune.icon} {t('userInfo.reportReady')}
-                                </p>
-                            </div>
-                        )}
                     </form>
                 </div>
             </div>
@@ -201,10 +230,16 @@ const UserInfoSection: React.FC = () => {
                         </div>
                         <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6">
                             <button
-                                onClick={() => setShowModal(false)}
+                                onClick={() => {
+                                    setShowModal(false);
+                                    // Navigate to consultation page
+                                    setTimeout(() => {
+                                        navigate('/consultation');
+                                    }, 100);
+                                }}
                                 className="w-full py-3 px-4 bg-primary text-white rounded-md hover:bg-amber-700 transition-colors font-medium"
                             >
-                                {currentLang === 'zh' ? '关闭' : 'Close'}
+                                {currentLang === 'zh' ? '进入下一步' : 'Next Step'}
                             </button>
                         </div>
                     </div>
