@@ -11,13 +11,23 @@ i18n
         resources: {
             en: {
                 translation: {
+                    common: {
+                        before: "Before",
+                        after: "After",
+                    },
                     nav: {
                         home: "Home",
                         consultation: "Consultation",
                         homeConsultation: "Home Feng Shui",
                         blog: "Blog",
                         login: "Login",
-                        logout: "Logout"
+                        logout: "Logout",
+                        switchToZh: "Switch to Chinese",
+                        switchToEn: "Switch to English",
+                        langShort: {
+                            en: "EN",
+                            zh: "中"
+                        }
                     },
                     hero: {
                         title: "Home, Is Your Personal Universe",
@@ -77,6 +87,18 @@ i18n
                             req3: "Clear room boundaries and labels",
                             dragDrop: "Drag and drop your floor plan here, or click to browse",
                             fileTypes: "Supported formats: JPG, PNG, PDF (max 10MB)",
+                            selectFile: "Select File",
+                            houseType: "House Type",
+                            types: {
+                                apartment: "Apartment",
+                                condo: "Condo",
+                                villa: "Villa",
+                                loft: "Loft",
+                                other: "Other"
+                            },
+                            addFloor: "Add Floor",
+                            removeFloor: "Remove Floor",
+                            floor: "Floor",
                             analyze: "Analyze Floor Plan",
                             reupload: "Upload Different Image"
                         },
@@ -109,9 +131,21 @@ i18n
                             reuploadError: "Incorrect Recognition? Re-upload"
                         }
                     },
+                    floorPlan: {
+                        errors: {
+                            invalidType: "Unsupported file type. Please upload JPG, PNG, or PDF.",
+                            tooLarge: "File is too large. Please upload a file under 10MB.",
+                            missingUserInfo: "Please fill in your email, gender, and birth date.",
+                            missingFiles: "Please upload a floor plan for each floor.",
+                            maxFloors: "You can upload up to 3 floors only.",
+                            invalidFile: "Invalid file"
+                        }
+                    },
                     energyForecast: {
                         title: "Your Energy Forecast",
                         subtitle: "A glimpse into your personal energy shifts for the coming years.",
+                        before: "Before",
+                        after: "After",
                         payButton: "Generate Full Report"
                     },
                     consultation: {
@@ -188,11 +222,26 @@ i18n
                         title: "Information Center",
                         subtitle: "Learn more about our services and policies.",
                         footer: "All rights reserved.",
-                        faq: { title: "FAQ", content: "" },
-                        pricing: { title: "Pricing", content: "" },
-                        about: { title: "About Us", content: "" },
-                        disclaimer: { title: "Disclaimer", content: "" },
-                        privacy: { title: "Privacy Policy", content: "" }
+                        faq: {
+                            title: "FAQ",
+                            content: "1) What is included in the Feng Shui report? A personalized energy blueprint, room-by-room guidance, and timing tips for the next 12-18 months.\n2) How do you generate recommendations? We combine your birth data with the floor-plan orientation to align Bagua areas, Five Elements balance, and practical placement rules.\n3) Is this a substitute for on-site audits? It is remote guidance; for structural changes or safety issues, consult licensed local professionals.\n4) When will I receive the report? Instant preview for the sample; the full PDF download and email delivery arrive right after successful payment.\n5) How do I update my details? You can re-upload an accurate floor plan anytime or contact support to refresh your analysis.\n6) What if my floor plan is unclear? If we cannot process it, we will work with you to fix the file or provide a refund within 7 days."
+                        },
+                        pricing: {
+                            title: "Pricing",
+                            content: "Free: Preview of the demo report and checklist.\n$29.99: Full Home Energy Report (one-time, no auto-renewal) for one property and one set of birth details.\n$49.99: Report + 30-minute expert Q&A (scheduled via email after purchase).\nAdd-ons: Additional floor or unit maps can be added on request.\nAll prices are in USD; local taxes or processing fees may apply."
+                        },
+                        about: {
+                            title: "About Us",
+                            content: "We are Feng Shui Energy—a team of classical Feng Shui practitioners, architects, and data scientists who blend traditional Bagua, Flying Stars, and Five Elements principles with modern spatial analysis. Our mission is to make mindful, energy-aligned living accessible without forcing superstition or costly renovations. We respect cultural practices, avoid harmful recommendations, and welcome feedback at support@fengshuienergy.com."
+                        },
+                        disclaimer: {
+                            title: "Disclaimer",
+                            content: "Our content is for wellness and educational purposes only. It is not medical, psychological, financial, architectural, legal, or safety advice. Results depend on your environment and actions, and we cannot guarantee specific outcomes. Always verify measurements, obtain necessary permits, and consult licensed professionals for structural, electrical, or health-related decisions. Use of the service implies you accept these limitations."
+                        },
+                        privacy: {
+                            title: "Privacy Policy",
+                            content: "Data we collect: contact information (email, name), optional birth date, and uploaded floor plans/photos. Purpose: generating your Feng Shui report, customer support, and product improvement. Storage: encrypted in transit and at rest; access is limited to authorized staff. Retention: working files are kept for up to 90 days unless you request earlier deletion. We do not sell personal data. Sharing: only with essential processors (cloud storage, analytics, payment providers) under confidentiality. Your rights: request access, correction, download, or deletion via support@fengshuienergy.com. Cookies: used for session continuity and basic analytics."
+                        }
                     },
                     reportContent: {
                         title: "What's Included in Your Home Feng Shui Energy Report",
@@ -234,13 +283,23 @@ i18n
             },
             zh: {
                 translation: {
+                    common: {
+                        before: "调整前",
+                        after: "调整后",
+                    },
                     nav: {
                         home: "首页",
                         consultation: "风水咨询",
                         homeConsultation: "居家风水",
                         blog: "博客",
                         login: "登录",
-                        logout: "登出"
+                        logout: "登出",
+                        switchToZh: "切换到中文",
+                        switchToEn: "切换到英文",
+                        langShort: {
+                            en: "EN",
+                            zh: "中"
+                        }
                     },
                     hero: {
                         title: "家，是你的个人宇宙",
@@ -300,6 +359,18 @@ i18n
                             req3: "房间边界和标签清晰",
                             dragDrop: "拖放户型图到这里，或点击浏览",
                             fileTypes: "支持格式：JPG、PNG、PDF（最大 10MB）",
+                            selectFile: "选择文件",
+                            houseType: "房屋类型",
+                            types: {
+                                apartment: "公寓",
+                                condo: "共管公寓",
+                                villa: "别墅",
+                                loft: "LOFT/跃层",
+                                other: "其他"
+                            },
+                            addFloor: "添加楼层",
+                            removeFloor: "删除楼层",
+                            floor: "楼层",
                             analyze: "分析户型图",
                             reupload: "上传其他图片"
                         },
@@ -332,9 +403,21 @@ i18n
                             reuploadError: "识别有误，重新上传"
                         }
                     },
+                    floorPlan: {
+                        errors: {
+                            invalidType: "不支持的文件格式，请上传 JPG、PNG 或 PDF。",
+                            tooLarge: "文件过大，请上传小于 10MB 的文件。",
+                            missingUserInfo: "请填写邮箱、性别和出生日期。",
+                            missingFiles: "请为每一层上传户型图。",
+                            maxFloors: "最多只能上传 3 层户型图。",
+                            invalidFile: "文件无效，请重新选择。"
+                        }
+                    },
                     energyForecast: {
                         title: "您的能量预测",
                         subtitle: "一以此窥探未来几年您的个人能量转变。",
+                        before: "调整前",
+                        after: "调整后",
                         payButton: "生成完整报告"
                     },
                     consultation: {

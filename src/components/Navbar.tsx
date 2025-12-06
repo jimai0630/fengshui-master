@@ -8,6 +8,7 @@ const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [showConsultationDropdown, setShowConsultationDropdown] = useState(false);
+    const isZh = i18n.language?.startsWith('zh');
 
     // Handle scroll effect
     useEffect(() => {
@@ -24,7 +25,7 @@ const Navbar = () => {
     }, []);
 
     const toggleLanguage = () => {
-        const newLang = i18n.language === 'en' ? 'zh' : 'en';
+        const newLang = isZh ? 'en' : 'zh';
         i18n.changeLanguage(newLang);
     };
 
@@ -75,9 +76,6 @@ const Navbar = () => {
                                 )}
                             </div>
 
-                            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                {t('nav.blog')}
-                            </a>
                         </div>
                     </div>
 
@@ -88,7 +86,7 @@ const Navbar = () => {
                             className="text-gray-300 hover:text-white p-2 rounded-full transition-colors flex items-center gap-1 text-sm"
                         >
                             <Globe size={18} />
-                            <span>{i18n.language === 'en' ? 'EN' : '中'}</span>
+                            <span>{t(isZh ? 'nav.langShort.zh' : 'nav.langShort.en')}</span>
                         </button>
                     </div>
 
@@ -115,14 +113,11 @@ const Navbar = () => {
                         <Link to="/consultation" className="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                             {t('nav.homeConsultation')}
                         </Link>
-                        <a href="#" className="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                            {t('nav.blog')}
-                        </a>
                         <button
                             onClick={toggleLanguage}
                             className="w-full text-left text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium"
                         >
-                            {i18n.language === 'en' ? 'Switch to 中文' : 'Switch to English'}
+                            {t(isZh ? 'nav.switchToEn' : 'nav.switchToZh')}
                         </button>
                     </div>
                 </div>
