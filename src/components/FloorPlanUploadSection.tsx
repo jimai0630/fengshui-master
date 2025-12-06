@@ -79,7 +79,7 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
     const handleFileSelect = (floorIndex: number, file: File) => {
         const validation = validateImageFile(file);
         if (!validation.valid) {
-            setError(validation.error || 'Invalid file');
+            setError(validation.error || t('floorPlan.errors.invalidFile'));
             return;
         }
 

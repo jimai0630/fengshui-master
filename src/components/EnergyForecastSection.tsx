@@ -37,7 +37,7 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
                             {energyData.dimension_labels[dim]}
                         </h3>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs text-gray-500">Before:</span>
+                            <span className="text-xs text-gray-500">{t('energyForecast.before')}</span>
                             <span className="text-lg font-bold text-gray-800 dark:text-white">
                                 {energyData.scores_before[dim]}
                             </span>
