@@ -1,0 +1,425 @@
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import FormData from 'form-data';
+import fetch from 'node-fetch';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({ path: join(__dirname, '.env') });
+dotenv.config();
+
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+const PORT = process.env.PORT || 4000;
+const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1';
+const DIFY_API_KEY = process.env.DIFY_API_KEY;
+const DEFAULT_USER_ID = process.env.DIFY_DEFAULT_USER || 'fengshui-user';
+
+if (!DIFY_API_KEY) {
+    console.warn('[WARN] DIFY_API_KEY is not set. API requests will fail until it is provided.');
+}
+
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+/**
+ * Helper: call Dify JSON endpoint
+ */
+async function postJsonToDify(path, body) {
+    const response = await fetch(`${DIFY_BASE_URL}${path}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Dify API error: ${message}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Helper: call Dify streaming endpoint and aggregate result
+ */
+async function postStreamingToDify(path, body) {
+    const response = await fetch(`${DIFY_BASE_URL}${path}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Dify API error: ${message}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error('Failed to read streaming response.');
+    }
+
+    const decoder = new TextDecoder();
+    let fullAnswer = '';
+    let conversationId = body.conversation_id || '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (!payload) continue;
+
+            const data = JSON.parse(payload);
+            if (data.conversation_id) {
+                conversationId = data.conversation_id;
+            }
+
+            if (data.answer) {
+                fullAnswer += data.answer;
+            }
+        }
+    }
+
+    return { fullAnswer, conversationId };
+}
+
+async function streamChatMessages(body) {
+    const response = await fetch(`${DIFY_BASE_URL}/chat-messages`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Dify streaming error: ${message}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error('Failed to read streaming response.');
+    }
+
+    const decoder = new TextDecoder();
+    const events = [];
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            buffer += decoder.decode();
+            break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
+
+            if (!line || !line.startsWith('data:')) {
+                continue;
+            }
+
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') {
+                continue;
+            }
+
+            try {
+                events.push(JSON.parse(payload));
+            } catch (error) {
+                console.warn('[chat] Failed to parse SSE chunk:', error);
+            }
+        }
+    }
+
+    return events;
+}
+
+/**
+ * Upload helper using axios + multipart form-data
+ */
+async function uploadFileToDify(fileBuffer, { filename, contentType }, userId) {
+    if (!fileBuffer) {
+        throw new Error('Missing file buffer.');
+    }
+    if (!DIFY_API_KEY) {
+        throw new Error('DIFY_API_KEY is not configured.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileBuffer, {
+        filename,
+        contentType
+    });
+    formData.append('user', userId || DEFAULT_USER_ID);
+
+    const headers = {
+        ...formData.getHeaders(),
+        Authorization: `Bearer ${DIFY_API_KEY}`
+    };
+
+    try {
+        const { data } = await axios.post(
+            `${DIFY_BASE_URL}/files/upload`,
+            formData,
+            {
+                headers,
+                maxBodyLength: Infinity
+            }
+        );
+        return data;
+    } catch (error) {
+        const apiMessage = error.response?.data
+            ? JSON.stringify(error.response.data)
+            : error.message;
+        throw new Error(`Dify upload failed: ${apiMessage}`);
+    }
+}
+
+/**
+ * Upload file endpoint
+ */
+app.post('/api/dify/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Missing file field.' });
+        }
+
+        const userId =
+            (req.body?.user && req.body.user.toString().trim()) || DEFAULT_USER_ID;
+
+        const data = await uploadFileToDify(
+            req.file.buffer,
+            {
+                filename: req.file.originalname,
+                contentType: req.file.mimetype
+            },
+            userId
+        );
+        res.json(data);
+    } catch (error) {
+        console.error('[upload] error:', error);
+        res.status(500).json({ error: error.message || 'Upload failed' });
+    }
+});
+
+/**
+ * Generic chat endpoint proxy
+ */
+app.post('/api/dify/chat', async (req, res) => {
+    try {
+        const {
+            query,
+            inputs = {},
+            fileId,
+            fileUrl,
+            fileType = 'image',
+            transferMethod,
+            responseMode = 'streaming',
+            conversationId = '',
+            user = DEFAULT_USER_ID
+        } = req.body;
+
+        if (!query) {
+            return res.status(400).json({ error: 'Missing query field.' });
+        }
+
+        const payload = {
+            inputs,
+            query,
+            response_mode: responseMode,
+            conversation_id: conversationId,
+            user
+        };
+
+        const files = [];
+        if (fileUrl) {
+            files.push({
+                type: fileType,
+                transfer_method: transferMethod || 'remote_url',
+                url: fileUrl
+            });
+        } else if (fileId) {
+            files.push({
+                type: fileType,
+                transfer_method: transferMethod || 'local_file',
+                upload_file_id: fileId
+            });
+        }
+
+        if (files.length > 0) {
+            payload.files = files;
+        }
+
+        if (responseMode === 'streaming') {
+            const events = await streamChatMessages(payload);
+            res.json({
+                mode: 'streaming',
+                events
+            });
+        } else {
+            const data = await postJsonToDify('/chat-messages', payload);
+            res.json({
+                mode: 'blocking',
+                data
+            });
+        }
+    } catch (error) {
+        console.error('[chat] error:', error);
+        res.status(500).json({ error: error.message || 'Chat failed' });
+    }
+});
+
+/**
+ * Layout grid endpoint
+ */
+app.post('/api/dify/layout-grid', async (req, res) => {
+    try {
+        const { floorPlanFileId, floorPlanDesc, userData } = req.body;
+
+        if (!floorPlanFileId || !userData?.floorIndex) {
+            return res.status(400).json({ error: 'Missing required fields.' });
+        }
+
+        const payload = {
+            inputs: {
+                mode: 'layout_grid',
+                floor_index: userData.floorIndex,
+                floor_plan_desc: floorPlanDesc || '',
+                house_type: userData.houseType || 'apartment',
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请分析这个户型图，将其划分为九宫格，并识别每个宫位的房间。',
+            response_mode: 'blocking',
+            conversation_id: userData.conversationId || '',
+            user: DEFAULT_USER_ID,
+            files: [
+                {
+                    type: 'image',
+                    transfer_method: 'local_file',
+                    upload_file_id: floorPlanFileId
+                }
+            ]
+        };
+
+        const response = await postJsonToDify('/chat-messages', payload);
+        res.json(response);
+    } catch (error) {
+        console.error('[layout-grid] error:', error);
+        res.status(500).json({ error: error.message || 'Layout grid failed' });
+    }
+});
+
+/**
+ * Energy summary endpoint
+ */
+app.post('/api/dify/energy-summary', async (req, res) => {
+    try {
+        const { userData, houseGridJson, roomPhotosDesc } = req.body;
+
+        if (!userData?.birthDate || !houseGridJson) {
+            return res.status(400).json({ error: 'Missing required fields.' });
+        }
+
+        const payload = {
+            inputs: {
+                mode: 'energy_summary',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo,
+                benming_star_name: userData.benmingStarName,
+                house_type: userData.houseType || 'apartment',
+                floor_index: userData.floorIndex,
+                house_grid_json: houseGridJson,
+                room_photos_desc: roomPhotosDesc || '',
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
+            response_mode: 'blocking',
+            conversation_id: userData.conversationId || '',
+            user: DEFAULT_USER_ID
+        };
+
+        const response = await postJsonToDify('/chat-messages', payload);
+        res.json(response);
+    } catch (error) {
+        console.error('[energy-summary] error:', error);
+        res.status(500).json({ error: error.message || 'Energy summary failed' });
+    }
+});
+
+/**
+ * Full report endpoint
+ */
+app.post('/api/dify/full-report', async (req, res) => {
+    try {
+        const { userData, houseGridJson, roomPhotosDesc } = req.body;
+
+        if (!userData?.birthDate || !houseGridJson) {
+            return res.status(400).json({ error: 'Missing required fields.' });
+        }
+
+        const payload = {
+            inputs: {
+                mode: 'full_report',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo,
+                benming_star_name: userData.benmingStarName,
+                house_type: userData.houseType || 'apartment',
+                floor_index: userData.floorIndex,
+                house_grid_json: houseGridJson,
+                room_photos_desc: roomPhotosDesc || '',
+                language_mode: userData.languageMode || 'zh',
+                user_expectation: userData.email ? `用户邮箱: ${userData.email}` : ''
+            },
+            query: '请生成我的2026年完整风水报告。',
+            response_mode: 'streaming',
+            conversation_id: userData.conversationId || '',
+            user: DEFAULT_USER_ID
+        };
+
+        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload);
+
+        const pdfMatch = fullAnswer.match(/data:application\/pdf;base64,([A-Za-z0-9+/=]+)/);
+        const pdfBase64 = pdfMatch ? pdfMatch[1] : undefined;
+
+        res.json({
+            conversation_id: conversationId,
+            report_content: fullAnswer,
+            pdf_base64: pdfBase64
+        });
+    } catch (error) {
+        console.error('[full-report] error:', error);
+        res.status(500).json({ error: error.message || 'Full report failed' });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Dify proxy server running on port ${PORT}`);
+});

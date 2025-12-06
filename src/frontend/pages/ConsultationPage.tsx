@@ -247,6 +247,11 @@ const ConsultationPage: React.FC = () => {
         }
     };
 
+    // Handler: Payment error
+    const handlePaymentError = (errorMessage: string) => {
+        setError(errorMessage);
+    };
+
     // Handler: Retry from error
     const handleRetry = () => {
         setError(null);
@@ -339,7 +344,6 @@ const ConsultationPage: React.FC = () => {
                 {/* Step 1: Floor Plan Upload */}
                 {currentStep === 'floor-plan-upload' && (
                     <FloorPlanUploadSection
-                        initialUserData={initialUserData}
                         onComplete={handleFloorPlanUploadComplete}
                         onAnalyzing={() => setCurrentStep('floor-plan-analyzing')}
                     />
@@ -398,6 +402,7 @@ const ConsultationPage: React.FC = () => {
                     <PaymentSection
                         reportPrice={REPORT_PRICE}
                         onPaymentSuccess={handlePaymentSuccess}
+                        onPaymentError={handlePaymentError}
                     />
                 )}
 

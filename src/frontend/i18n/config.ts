@@ -131,8 +131,6 @@ i18n
                             title: "Analyzing Energy",
                             message: "Calculating your personalized energy forecast..."
                         },
-                        reportReady: "Your report is ready!",
-                        downloadReport: "Download Report",
                         errors: {
                             layoutGridFailed: "Floor plan analysis failed. Please try again.",
                             analysisError: "An error occurred during analysis. Please try again.",

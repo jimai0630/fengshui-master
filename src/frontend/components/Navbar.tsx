@@ -28,6 +28,10 @@ const Navbar = () => {
         i18n.changeLanguage(newLang);
     };
 
+    const toggleLogin = () => {
+        setIsLoggedIn(!isLoggedIn);
+    };
+
     return (
         <nav
             className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/70 backdrop-blur-md shadow-lg' : 'bg-black/30 backdrop-blur-sm'

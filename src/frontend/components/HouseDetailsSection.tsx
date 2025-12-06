@@ -2,17 +2,21 @@ import { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n/config';
+import type { TFunction } from 'i18next';
 import { Upload, CheckCircle, XCircle, Loader2, Edit2, Image as ImageIcon } from 'lucide-react';
 import { validateImageFile } from '../services/mockFloorPlanAI';
-import { uploadFile, callLayoutGrid, withRetry } from '../services/difyService';
+import { uploadFile, callLayoutGrid, chatWithDify } from '../services/difyService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
-
 import type { Room, UploadStep } from '../types/floorPlan';
-import type { UserCompleteData, LayoutGridResponse, RoomPhotoData } from '../types/dify';
+import type {
+    UserCompleteData,
+    LayoutGridResponse,
+    RoomPhotoData,
+    DifyChatStreamingEvent
+} from '../types/dify';
 
 const HouseDetailsSection: React.FC = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -28,15 +32,21 @@ const HouseDetailsSection: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [analysisProgress, setAnalysisProgress] = useState(0);
     const [conversationId, setConversationId] = useState<string>('');
+    const [chatEvents, setChatEvents] = useState<DifyChatStreamingEvent[]>([]);
+    const [chatAnswer, setChatAnswer] = useState('');
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const [chatError, setChatError] = useState<string | null>(null);
 
     // Personal Info State
     const [name, setName] = useState(location.state?.name || '');
-    const [email] = useState(location.state?.email || 'user@example.com'); // Default email for now
+    const [email] = useState(location.state?.email || '');
     const [gender, setGender] = useState<'男' | '女' | ''>('');
     const [birthDate, setBirthDate] = useState(location.state?.birthDate || '');
-    const [floorIndex] = useState(1);
+    const floorIndex = 1;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const resolveUserId = () => (name?.trim() ? `web-${name.trim()}` : 'fengshui-web-user');
 
     // Handle file selection
     const handleFileSelect = (file: File) => {
@@ -109,7 +119,7 @@ const HouseDetailsSection: React.FC = () => {
         try {
             // Step 1: Upload floor plan to Dify
             setAnalysisProgress(20);
-            const uploadResponse = await withRetry(() => uploadFile(floorPlanImage, email));
+            const uploadResponse = await uploadFile(floorPlanImage, resolveUserId());
             setFloorPlanFileId(uploadResponse.id);
 
             setAnalysisProgress(40);
@@ -119,19 +129,18 @@ const HouseDetailsSection: React.FC = () => {
 
             const userData: UserCompleteData = {
                 birthDate,
+                email,
                 gender: gender as '男' | '女',
                 floorPlanFileId: uploadResponse.id,
                 name,
-                email,
                 floorIndex,
                 languageMode: i18n.language === 'zh' ? 'zh' : 'en'
             };
 
             setAnalysisProgress(60);
 
-            const { result, conversationId: newConvId } = await withRetry(() =>
-                callLayoutGrid(userData, [uploadResponse.id], floorPlanDesc, i18n.language === 'zh' ? 'zh' : 'en')
-            );
+            const { result, conversationId: newConvId } =
+                await callLayoutGrid(userData, [uploadResponse.id], floorPlanDesc);
 
             setConversationId(newConvId);
             setLayoutGridResult(result);
@@ -141,7 +150,7 @@ const HouseDetailsSection: React.FC = () => {
 
             // Convert layout grid result to Room type
             if (result.houses && result.houses.length > 0) {
-                const initialRooms: Room[] = result.houses.map((house: { palace: string; palace_cn: string; main_room_name: string }, index: number) => ({
+                const initialRooms: Room[] = result.houses.map((house, index) => ({
                     id: `room-${index}`,
                     name: house.main_room_name,
                     confidence: 0.9,
@@ -174,7 +183,7 @@ const HouseDetailsSection: React.FC = () => {
     const handleRoomPhotoUpload = async (roomId: string, file: File) => {
         try {
             // Upload photo to Dify
-            const uploadResponse = await uploadFile(file, email);
+            const uploadResponse = await uploadFile(file, resolveUserId());
 
             // Store file and fileId
             setRoomPhotos(prev => new Map(prev).set(roomId, { file, fileId: uploadResponse.id }));
@@ -186,6 +195,65 @@ const HouseDetailsSection: React.FC = () => {
         } catch (err) {
             console.error('Photo upload error:', err);
             setError(t('dify.error.upload'));
+        }
+    };
+
+    const handleSampleChat = async () => {
+        if (!floorPlanFileId) {
+            setChatError('请先完成户型图上传和分析。');
+            return;
+        }
+
+        setIsChatLoading(true);
+        setChatError(null);
+        setChatEvents([]);
+        setChatAnswer('');
+
+        try {
+            const chatResponse = await chatWithDify({
+                query: '请用一句话总结这个户型的关键信息，并提示我还需提供哪些资料。',
+                inputs: {
+                    mode: 'floor_plan_demo',
+                    floor_index: floorIndex
+                },
+                fileId: floorPlanFileId,
+                responseMode: 'streaming',
+                conversationId,
+                user: resolveUserId()
+            });
+
+            if (chatResponse.mode === 'streaming' && chatResponse.events) {
+                setChatEvents(chatResponse.events);
+
+                const aggregatedAnswer = chatResponse.events
+                    .map(event => (typeof event.answer === 'string' ? event.answer : ''))
+                    .join('');
+
+                if (aggregatedAnswer) {
+                    setChatAnswer(aggregatedAnswer);
+                }
+
+                const eventConversationId = chatResponse.events
+                    .map(event => event.conversation_id)
+                    .filter((id): id is string => Boolean(id))
+                    .pop();
+
+                if (eventConversationId) {
+                    setConversationId(eventConversationId);
+                }
+            } else if (chatResponse.data) {
+                if (chatResponse.data.answer) {
+                    setChatAnswer(chatResponse.data.answer);
+                }
+                if (chatResponse.data.conversation_id) {
+                    setConversationId(chatResponse.data.conversation_id);
+                }
+            }
+        } catch (err) {
+            console.error('Chat error:', err);
+            setChatError(err instanceof Error ? err.message : 'Chat request failed.');
+        } finally {
+            setIsChatLoading(false);
         }
     };
 
@@ -221,7 +289,7 @@ const HouseDetailsSection: React.FC = () => {
                     roomId,
                     roomName: room.name,
                     fileId: photoData.fileId,
-                    palace: (room as any).palace
+                    palace: room.palace
                 });
             }
         });
@@ -496,6 +564,55 @@ const HouseDetailsSection: React.FC = () => {
                                 </p>
                             </div>
 
+                            {/* Dify chat demo */}
+                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">AI 问答实验室</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                            使用 /chat-messages 接口实时分析刚上传的户型图。
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleSampleChat}
+                                        disabled={isChatLoading || !floorPlanFileId}
+                                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isChatLoading ? '生成中...' : '发送示例提问'}
+                                    </button>
+                                </div>
+
+                                {chatError && (
+                                    <p className="text-sm text-red-500">
+                                        {chatError}
+                                    </p>
+                                )}
+
+                                {chatAnswer && (
+                                    <div className="text-sm text-gray-800 dark:text-gray-100">
+                                        <p className="font-semibold mb-1">AI 回复</p>
+                                        <p>{chatAnswer}</p>
+                                    </div>
+                                )}
+
+                                {chatEvents.length > 0 && (
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                            Streaming Events
+                                        </p>
+                                        <div className="max-h-48 overflow-y-auto bg-black text-green-400 text-xs font-mono rounded-md p-3 space-y-1">
+                                            {chatEvents.map((event, index) => (
+                                                <pre
+                                                    key={`chat-event-${event.message_id || event.id || event.event || index}-${index}`}
+                                                >
+                                                    {JSON.stringify(event, null, 2)}
+                                                </pre>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Action Buttons */}
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <button
@@ -525,7 +642,7 @@ interface RoomCardProps {
     room: Room;
     onNameChange: (roomId: string, newName: string) => void;
     onPhotoUpload: (roomId: string, file: File) => void;
-    t: any;
+    t: TFunction;
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, onNameChange, onPhotoUpload, t }) => {
