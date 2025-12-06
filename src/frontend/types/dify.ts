@@ -8,6 +8,7 @@ export interface DifyFileUploadResponse {
     mime_type: string;
     created_by: string;
     created_at: number;
+    source_url?: string;
 }
 
 // User Data Types

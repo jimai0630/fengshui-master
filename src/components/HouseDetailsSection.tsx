@@ -130,7 +130,7 @@ const HouseDetailsSection: React.FC = () => {
             setAnalysisProgress(60);
 
             const { result, conversationId: newConvId } = await withRetry(() =>
-                callLayoutGrid(userData, [uploadResponse.id], floorPlanDesc, i18n.language === 'zh' ? 'zh' : 'en')
+                callLayoutGrid(userData, [uploadResponse.source_url || uploadResponse.id], floorPlanDesc, i18n.language === 'zh' ? 'zh' : 'en')
             );
 
             setConversationId(newConvId);

@@ -68,34 +68,32 @@ async function postStreamingToDify(path, body, apiKey) {
         throw new Error(`Dify API error: ${message}`);
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-        throw new Error('Failed to read streaming response.');
-    }
-
+    // Node-fetch returns a Node.js stream, not a Web Stream with getReader()
+    // We can iterate over it asynchronously
     const decoder = new TextDecoder();
     let fullAnswer = '';
     let conversationId = body.conversation_id || '';
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+    for await (const chunk of response.body) {
+        const text = decoder.decode(chunk, { stream: true });
+        const lines = text.split('\n');
 
         for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const payload = line.slice(6).trim();
             if (!payload) continue;
 
-            const data = JSON.parse(payload);
-            if (data.conversation_id) {
-                conversationId = data.conversation_id;
-            }
+            try {
+                const data = JSON.parse(payload);
+                if (data.conversation_id) {
+                    conversationId = data.conversation_id;
+                }
 
-            if (data.answer) {
-                fullAnswer += data.answer;
+                if (data.answer) {
+                    fullAnswer += data.answer;
+                }
+            } catch (e) {
+                // Ignore parse errors for partial chunks or non-JSON data
             }
         }
     }
@@ -118,23 +116,13 @@ async function streamChatMessages(body, apiKey) {
         throw new Error(`Dify streaming error: ${message}`);
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-        throw new Error('Failed to read streaming response.');
-    }
-
+    // Node-fetch returns a Node.js stream
     const decoder = new TextDecoder();
     const events = [];
     let buffer = '';
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            buffer += decoder.decode();
-            break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
+    for await (const chunk of response.body) {
+        buffer += decoder.decode(chunk, { stream: true });
 
         let newlineIndex;
         while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
@@ -304,9 +292,9 @@ app.post('/api/dify/layout-grid', async (req, res) => {
     try {
         const { floorPlanFileId, floorPlanDesc, userData } = req.body;
 
-        if (!floorPlanFileId || !userData?.floorIndex) {
-            return res.status(400).json({ error: 'Missing required fields.' });
-        }
+        // if (!floorPlanFileId || !userData?.floorIndex) {
+        //     return res.status(400).json({ error: 'Missing required fields.' });
+        // }
 
         const payload = {
             inputs: {
@@ -317,20 +305,25 @@ app.post('/api/dify/layout-grid', async (req, res) => {
                 language_mode: userData.languageMode || 'zh'
             },
             query: '请分析这个户型图，将其划分为九宫格，并识别每个宫位的房间。',
-            response_mode: 'blocking',
+            response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             user: DEFAULT_USER_ID,
             files: [
                 {
                     type: 'image',
-                    transfer_method: 'local_file',
-                    upload_file_id: floorPlanFileId
+                    transfer_method: 'remote_url',
+                    url: floorPlanFileId
                 }
             ]
         };
 
-        const response = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
-        res.json(response);
+        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
+
+        // Construct response in the format expected by frontend
+        res.json({
+            answer: fullAnswer,
+            conversation_id: conversationId
+        });
     } catch (error) {
         console.error('[layout-grid] error:', error);
         res.status(500).json({ error: error.message || 'Layout grid failed' });
