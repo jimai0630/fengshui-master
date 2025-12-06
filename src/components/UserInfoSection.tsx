@@ -14,7 +14,6 @@ const UserInfoSection: React.FC = () => {
     const [nickname, setNickname] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [email, setEmail] = useState('');
-    const [subscribed, setSubscribed] = useState(false);
     const [errors, setErrors] = useState<{ email?: string; date?: string }>({});
     const [zodiacReport, setZodiacReport] = useState<{ zodiac: string; fortune: ZodiacFortune } | null>(null);
     const [showModal, setShowModal] = useState(false);
@@ -64,18 +63,16 @@ const UserInfoSection: React.FC = () => {
                     fortune: zodiacFortunes[zodiacKey]
                 });
 
-                // TODO: Send subscription data to backend API
-                if (subscribed) {
-                    console.log('Subscription data:', {
-                        email,
-                        nickname,
-                        birthDate,
-                        zodiac: zodiacKey,
-                        subscribed: true
-                    });
-                    // Future: Call API to save subscription
-                    // await subscriptionService.subscribe({ email, nickname, birthDate, zodiac: zodiacKey });
-                }
+                // Auto-subscribe user
+                console.log('Subscription data:', {
+                    email,
+                    nickname,
+                    birthDate,
+                    zodiac: zodiacKey,
+                    subscribed: true
+                });
+                // Future: Call API to save subscription
+                // await subscriptionService.subscribe({ email, nickname, birthDate, zodiac: zodiacKey });
             }
         }
     };

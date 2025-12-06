@@ -4,7 +4,6 @@ import type {
     UserEssentialData,
     UserCompleteData,
     UserDataCache,
-    CachedResult,
     LayoutGridResponse,
     EnergySummaryResponse,
     FullReportResponse
@@ -53,21 +52,21 @@ export function getUserDataCache(): UserDataCache | null {
     try {
         const key = `${STORAGE_KEY_PREFIX}user_cache`;
         const cached = localStorage.getItem(key);
-        
+
         if (!cached) return null;
-        
+
         const cache: UserDataCache = JSON.parse(cached);
-        
+
         // 检查缓存是否过期
         const now = Date.now();
         const expiryTime = cache.lastUpdated + (CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
-        
+
         if (now > expiryTime) {
             // 缓存已过期，清除
             clearUserDataCache();
             return null;
         }
-        
+
         return cache;
     } catch (error) {
         console.error('Failed to get user data cache:', error);
@@ -98,16 +97,16 @@ export function checkIdempotency(
     step: 'step1' | 'step2' | 'step3'
 ): any | null {
     const cache = getUserDataCache();
-    
+
     if (!cache) return null;
-    
+
     const currentHash = hashEssentialData(essentialData);
-    
+
     // 如果必要信息发生变化，需要重新调用
     if (cache.essentialHash !== currentHash) {
         return null;
     }
-    
+
     // 返回对应步骤的缓存结果
     switch (step) {
         case 'step1':
@@ -133,7 +132,7 @@ export function cacheStepResult(
 ): void {
     const currentHash = hashEssentialData(essentialData);
     let cache = getUserDataCache();
-    
+
     // 如果没有缓存或哈希值不匹配，创建新缓存
     if (!cache || cache.essentialHash !== currentHash) {
         cache = {
@@ -143,7 +142,7 @@ export function cacheStepResult(
             lastUpdated: Date.now()
         };
     }
-    
+
     // 更新对应步骤的结果
     switch (step) {
         case 'step1':
@@ -156,12 +155,12 @@ export function cacheStepResult(
             cache.step3Result = result as FullReportResponse;
             break;
     }
-    
+
     // 更新conversationId（如果提供）
     if (conversationId) {
         cache.conversationId = conversationId;
     }
-    
+
     cache.lastUpdated = Date.now();
     saveUserDataCache(cache);
 }
