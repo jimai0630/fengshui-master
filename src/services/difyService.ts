@@ -1,135 +1,205 @@
+// Dify API Service
+
 import type {
+    DifyFileUploadResponse,
+    UserCompleteData,
     LayoutGridResponse,
     EnergySummaryResponse,
     FullReportResponse,
-    UserCompleteData
+    DifyChatRequest,
+    DifyChatResponse
 } from '../types/dify';
 
-const DIFY_BASE_URL = import.meta.env.VITE_DIFY_BASE_URL || '';
-const DIFY_API_KEY = import.meta.env.VITE_DIFY_API_KEY || '';
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || '/api';
 
 /**
- * Upload a file to Dify and return the file ID.
+ * 上传文件到后端，由后端代理到Dify
+ * @param file 需要上传的文件
+ * @param userId 用于标识终端用户的ID（传给Dify的user字段）
  */
-export async function uploadFile(file: File, userEmail: string): Promise<{ id: string }> {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('user', userEmail);
-
-    const response = await fetch(`${DIFY_BASE_URL}/files/upload`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${DIFY_API_KEY}`,
-        },
-        body: form,
-    });
-    if (!response.ok) {
-        throw new Error('File upload failed');
+export async function uploadFile(
+    file: File,
+    userId?: string
+): Promise<DifyFileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (userId) {
+        formData.append('user', userId);
     }
-    return response.json();
+
+    const response = await fetch(`${BACKEND_BASE_URL}/dify/upload`, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`File upload failed: ${error}`);
+    }
+
+    return await response.json();
 }
 
 /**
- * Call the layout grid analysis agent (Agent 1).
+ * 调用通用 chat-messages 接口
+ */
+export async function chatWithDify(
+    payload: DifyChatRequest
+): Promise<DifyChatResponse> {
+    const response = await fetch(`${BACKEND_BASE_URL}/dify/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            responseMode: 'streaming',
+            ...payload
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Chat request failed: ${error}`);
+    }
+
+    return await response.json();
+}
+
+/**
+ * Step 1: 调用 Agent1 - layout_grid 模式
+ * 支持多楼层平面图上传
  */
 export async function callLayoutGrid(
     userData: UserCompleteData,
-    fileIds: string[],
+    floorPlanFileIds: string[], // 支持多个文件ID
     houseType: string,
-    language: string
+    languageMode: 'zh' | 'en' | 'mix' = 'zh'
 ): Promise<{ result: LayoutGridResponse; conversationId: string }> {
-    const payload = {
-        inputs: {
-            ...userData,
-            file_ids: fileIds,
-            house_type: houseType,
-            language,
-        },
-    };
-    const response = await fetch(`${DIFY_BASE_URL}/agents/layout_grid`, {
+    const response = await fetch(`${BACKEND_BASE_URL}/dify/layout-grid`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            userData,
+            floorPlanFileIds,
+            houseType,
+            languageMode
+        })
     });
-    const data = await response.json();
-    return { result: data as LayoutGridResponse, conversationId: data.conversation_id || '' };
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Layout grid failed: ${error}`);
+    }
+
+    const resultData = await response.json();
+
+    // 解析返回的JSON
+    let result: LayoutGridResponse;
+    try {
+        // Dify可能在answer中返回JSON字符串
+        const answerText = resultData.answer || '{}';
+        result = JSON.parse(answerText);
+
+        // 验证必需字段
+        if (typeof result.ok === 'undefined') {
+            throw new Error('Invalid response format: missing "ok" field');
+        }
+    } catch (error) {
+        console.error('Failed to parse layout grid response:', error);
+        throw new Error('Failed to parse layout grid response');
+    }
+
+    return {
+        result,
+        conversationId: resultData.conversation_id
+    };
 }
 
 /**
- * Call the energy summary agent (Agent 2).
+ * Step 2: 调用energy_summary模式
  */
 export async function callEnergySummary(
     userData: UserCompleteData,
-    layoutGridJson: string,
-    task: string
+    houseGridJson: string,
+    mode: 'energy_summary' | 'full_report' = 'energy_summary'
 ): Promise<{ result: EnergySummaryResponse; conversationId: string }> {
-    const payload = {
-        inputs: {
-            ...userData,
-            layout_grid: layoutGridJson,
-            task,
-        },
-    };
-    const response = await fetch(`${DIFY_BASE_URL}/agents/energy_summary`, {
+    const response = await fetch(`${BACKEND_BASE_URL}/dify/energy-summary`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            userData,
+            houseGridJson,
+            mode
+        })
     });
-    const data = await response.json();
-    return { result: data as EnergySummaryResponse, conversationId: data.conversation_id || '' };
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Energy summary failed: ${error}`);
+    }
+
+    const resultData = await response.json();
+
+    // 解析返回的JSON
+    let result: EnergySummaryResponse;
+    try {
+        // 提取JSON部分（可能包含在其他文本中）
+        const answerText = resultData.answer || '';
+        const jsonMatch = answerText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+        } else {
+            throw new Error('No JSON found in response');
+        }
+    } catch (error) {
+        console.error('Failed to parse energy summary response:', error);
+        throw new Error('Failed to parse energy summary response');
+    }
+
+    return {
+        result,
+        conversationId: resultData.conversation_id
+    };
 }
 
 /**
- * Call the full report generation agent (Agent 3).
+ * Step 3: 调用 Agent2 - full_report 模式
  */
 export async function callFullReport(
     userData: UserCompleteData,
-    layoutGridJson: string,
-    _onProgress?: (progress: number) => void
-): Promise<{ result: FullReportResponse }> {
-    const payload = {
-        inputs: {
-            ...userData,
-            layout_grid: layoutGridJson,
-        },
-    };
-    const response = await fetch(`${DIFY_BASE_URL}/agents/full_report`, {
+    houseGridJson: string,
+    onProgress?: (progress: string) => void
+): Promise<{ result: FullReportResponse; conversationId: string }> {
+    onProgress?.('Generating your personalized report...');
+
+    const response = await fetch(`${BACKEND_BASE_URL}/dify/full-report`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${DIFY_API_KEY}`,
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            userData,
+            houseGridJson,
+            mode: 'full_report'
+        })
     });
-    // Simple implementation: no streaming progress handling
-    const data = await response.json();
-    return { result: data as FullReportResponse };
-}
 
-/**
- * Retry utility function for API calls
- */
-export async function withRetry<T>(
-    fn: () => Promise<T>,
-    maxRetries = 3,
-    delay = 1000
-): Promise<T> {
-    let lastError: Error | undefined;
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error as Error;
-            if (i < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
-            }
-        }
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Full report failed: ${error}`);
     }
-    throw lastError || new Error('Max retries exceeded');
+
+    const resultData = await response.json();
+
+    return {
+        result: {
+            report_content: resultData.answer || resultData.report_content || '',
+            pdf_base64: resultData.pdf_base64
+        },
+        conversationId: resultData.conversation_id
+    };
 }

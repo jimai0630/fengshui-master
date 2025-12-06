@@ -18,11 +18,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const PORT = process.env.PORT || 4000;
 const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1';
-const DIFY_API_KEY = process.env.DIFY_API_KEY;
+const DIFY_API_KEY_LAYOUT = process.env.DIFY_API_KEY_LAYOUT || process.env.DIFY_API_KEY;
+const DIFY_API_KEY_REPORT = process.env.DIFY_API_KEY_REPORT || process.env.DIFY_API_KEY;
 const DEFAULT_USER_ID = process.env.DIFY_DEFAULT_USER || 'fengshui-user';
 
-if (!DIFY_API_KEY) {
-    console.warn('[WARN] DIFY_API_KEY is not set. API requests will fail until it is provided.');
+if (!DIFY_API_KEY_LAYOUT && !DIFY_API_KEY_REPORT) {
+    console.warn('[WARN] DIFY_API_KEY_LAYOUT or DIFY_API_KEY_REPORT is not set. API requests will fail.');
 }
 
 app.use(cors());
@@ -31,11 +32,11 @@ app.use(express.json({ limit: '10mb' }));
 /**
  * Helper: call Dify JSON endpoint
  */
-async function postJsonToDify(path, body) {
+async function postJsonToDify(path, body, apiKey) {
     const response = await fetch(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -52,11 +53,11 @@ async function postJsonToDify(path, body) {
 /**
  * Helper: call Dify streaming endpoint and aggregate result
  */
-async function postStreamingToDify(path, body) {
+async function postStreamingToDify(path, body, apiKey) {
     const response = await fetch(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -102,11 +103,11 @@ async function postStreamingToDify(path, body) {
     return { fullAnswer, conversationId };
 }
 
-async function streamChatMessages(body) {
+async function streamChatMessages(body, apiKey) {
     const response = await fetch(`${DIFY_BASE_URL}/chat-messages`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${DIFY_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -163,12 +164,12 @@ async function streamChatMessages(body) {
 /**
  * Upload helper using axios + multipart form-data
  */
-async function uploadFileToDify(fileBuffer, { filename, contentType }, userId) {
+async function uploadFileToDify(fileBuffer, { filename, contentType }, userId, apiKey) {
     if (!fileBuffer) {
         throw new Error('Missing file buffer.');
     }
-    if (!DIFY_API_KEY) {
-        throw new Error('DIFY_API_KEY is not configured.');
+    if (!apiKey) {
+        throw new Error('DIFY API Key is not configured.');
     }
 
     const formData = new FormData();
@@ -180,7 +181,7 @@ async function uploadFileToDify(fileBuffer, { filename, contentType }, userId) {
 
     const headers = {
         ...formData.getHeaders(),
-        Authorization: `Bearer ${DIFY_API_KEY}`
+        Authorization: `Bearer ${apiKey}`
     };
 
     try {
@@ -219,7 +220,8 @@ app.post('/api/dify/upload', upload.single('file'), async (req, res) => {
                 filename: req.file.originalname,
                 contentType: req.file.mimetype
             },
-            userId
+            userId,
+            DIFY_API_KEY_LAYOUT
         );
         res.json(data);
     } catch (error) {
@@ -277,13 +279,13 @@ app.post('/api/dify/chat', async (req, res) => {
         }
 
         if (responseMode === 'streaming') {
-            const events = await streamChatMessages(payload);
+            const events = await streamChatMessages(payload, DIFY_API_KEY_LAYOUT);
             res.json({
                 mode: 'streaming',
                 events
             });
         } else {
-            const data = await postJsonToDify('/chat-messages', payload);
+            const data = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
             res.json({
                 mode: 'blocking',
                 data
@@ -327,7 +329,7 @@ app.post('/api/dify/layout-grid', async (req, res) => {
             ]
         };
 
-        const response = await postJsonToDify('/chat-messages', payload);
+        const response = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
         res.json(response);
     } catch (error) {
         console.error('[layout-grid] error:', error);
@@ -365,7 +367,7 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             user: DEFAULT_USER_ID
         };
 
-        const response = await postJsonToDify('/chat-messages', payload);
+        const response = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
         res.json(response);
     } catch (error) {
         console.error('[energy-summary] error:', error);
@@ -404,7 +406,7 @@ app.post('/api/dify/full-report', async (req, res) => {
             user: DEFAULT_USER_ID
         };
 
-        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload);
+        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
 
         const pdfMatch = fullAnswer.match(/data:application\/pdf;base64,([A-Za-z0-9+/=]+)/);
         const pdfBase64 = pdfMatch ? pdfMatch[1] : undefined;
