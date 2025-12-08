@@ -422,7 +422,8 @@ app.post('/api/dify/layout-grid', async (req, res) => {
 
         console.log('[layout-grid] Dify response:', {
             answerLength: fullAnswer?.length,
-            conversationId
+            conversationId, 
+            answer: fullAnswer
         });
 
         // Construct response in the format expected by frontend
