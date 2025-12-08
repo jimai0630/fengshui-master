@@ -158,12 +158,14 @@ i18n
                         retry: "Retry",
                         processing: "Processing...",
                         analyzing: {
-                            title: "Analyzing Your Floor Plan",
-                            message: "Please wait while we analyze your floor plan..."
+                            title: "Analyzing Floor Plan...",
+                            message: "Our AI is identifying room structures and orientations.",
+                            success: "Structure Recognized!",
+                            successDesc: "Floor plan successfully parsed."
                         },
                         energyAssessment: {
-                            title: "Analyzing Energy",
-                            message: "Calculating your personalized energy forecast..."
+                            title: "Calculating Energy Flow...",
+                            message: "Evaluating the interaction between your birth chart and the house energy."
                         },
                         reportReady: "Your report is ready!",
                         downloadReport: "Download Report",
@@ -424,24 +426,6 @@ i18n
                         steps: {
                             upload: "上传",
                             analysis: "分析",
-                            report: "报告"
-                        },
-                        back: "返回",
-                        retry: "重试",
-                        processing: "处理中...",
-                        analyzing: {
-                            title: "正在分析您的户型图",
-                            message: "请稍候，我们正在分析您的户型图..."
-                        },
-                        energyAssessment: {
-                            title: "能量分析中",
-                            message: "正在计算您的个性化能量预测..."
-                        },
-                        errors: {
-                            layoutGridFailed: "户型图分析失败，请重试。",
-                            analysisError: "分析过程中出现错误，请重试。",
-                            energyAssessmentError: "能量评估失败，请重试。",
-                            reportGenerationError: "报告生成失败，请重试。"
                         }
                     },
                     dify: {
