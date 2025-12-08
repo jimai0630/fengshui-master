@@ -29,11 +29,38 @@ if (!DIFY_API_KEY_LAYOUT && !DIFY_API_KEY_REPORT) {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// 简单的重试封装，用于临时性网络错误或 5xx
+async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok && res.status >= 500 && attempt < retries) {
+                await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+                continue;
+            }
+            return res;
+        } catch (err) {
+            lastError = err;
+            // 仅对常见网络错误进行重试
+            const transient =
+                err?.code &&
+                ['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED'].includes(err.code);
+            if (attempt < retries && transient) {
+                await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+}
+
 /**
  * Helper: call Dify JSON endpoint
  */
 async function postJsonToDify(path, body, apiKey) {
-    const response = await fetch(`${DIFY_BASE_URL}${path}`, {
+    const response = await fetchWithRetry(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -54,7 +81,7 @@ async function postJsonToDify(path, body, apiKey) {
  * Helper: call Dify streaming endpoint and aggregate result
  */
 async function postStreamingToDify(path, body, apiKey) {
-    const response = await fetch(`${DIFY_BASE_URL}${path}`, {
+    const response = await fetchWithRetry(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -69,43 +96,74 @@ async function postStreamingToDify(path, body, apiKey) {
     }
 
     // Node-fetch returns a Node.js stream, not a Web Stream with getReader()
-    // We can iterate over it asynchronously
+    // Use a buffered line reader to avoid losing partial lines between chunks
     const decoder = new TextDecoder();
+    let buffer = '';
     let fullAnswer = '';
     let conversationId = body.conversation_id || '';
+    const eventSnippets = [];
+    let firstErrorPayload = null;
 
-    for await (const chunk of response.body) {
-        const text = decoder.decode(chunk, { stream: true });
-        // console.log('[Dify Stream Raw]', text.slice(0, 100)); // Log first 100 chars of chunk for debug
+    try {
+        for await (const chunk of response.body) {
+            buffer += decoder.decode(chunk, { stream: true });
 
-        const lines = text.split('\n');
+            let newlineIndex;
+            while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+                const line = buffer.slice(0, newlineIndex).trim();
+                buffer = buffer.slice(newlineIndex + 1);
 
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine.startsWith('data:')) continue;
+                if (!line || !line.startsWith('data:')) continue;
 
-            // Handle both "data: {...}" and "data:{...}"
-            const payload = trimmedLine.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
+                const payload = line.slice(5).trim();
+                if (!payload || payload === '[DONE]') continue;
 
-            try {
-                const data = JSON.parse(payload);
-                if (data.conversation_id) {
-                    conversationId = data.conversation_id;
+                try {
+                    const data = JSON.parse(payload);
+                    // Collect a few snippets for debugging when answer is empty
+                    if (eventSnippets.length < 5) {
+                        eventSnippets.push({
+                            event: data.event || 'data',
+                            hasAnswer: !!data.answer,
+                            hasError: !!data.error,
+                            hasMessage: !!data.message,
+                            answerPreview: data.answer ? data.answer.slice(0, 80) : '',
+                            error: data.error,
+                            message: data.message
+                        });
+                    }
+
+                    if (!firstErrorPayload && (data.event === 'error' || data.error || data.message)) {
+                        firstErrorPayload = data;
+                    }
+
+                    if (data.conversation_id) {
+                        conversationId = data.conversation_id;
+                    }
+                    if (data.answer) {
+                        fullAnswer += data.answer;
+                    }
+
+                    if (data.error) {
+                        console.warn('[Dify Stream] Error event:', data.error);
+                    }
+                } catch (e) {
+                    console.warn('[Dify Stream] Parse error for line:', line, e);
                 }
-
-                if (data.answer) {
-                    fullAnswer += data.answer;
-                }
-            } catch (e) {
-                console.warn('[Dify Stream] Parse error for line:', trimmedLine, e);
             }
         }
+    } catch (err) {
+        // If we already have some answer, return partial rather than fail hard
+        if (fullAnswer && fullAnswer.trim().length > 0) {
+            console.warn('[Dify Stream] Stream interrupted but partial answer captured. Returning partial.', err);
+            return { fullAnswer, conversationId, events: eventSnippets, firstErrorPayload, partial: true };
+        }
+        throw err;
     }
 
-    console.log('[Dify Stream Final] Full Answer length:', fullAnswer.length, 'Content:', fullAnswer.substring(0, 50) + '...');
+    console.log('[Dify Stream Final] Full Answer length:', fullAnswer.length, 'Content:', fullAnswer.substring(0, 50) + '...', 'Events snippet:', eventSnippets, 'First error payload:', firstErrorPayload);
 
-    return { fullAnswer, conversationId };
+    return { fullAnswer, conversationId, events: eventSnippets, firstErrorPayload };
 }
 
 async function streamChatMessages(body, apiKey) {
@@ -218,6 +276,13 @@ app.post('/api/dify/upload', upload.single('file'), async (req, res) => {
             userId,
             DIFY_API_KEY_LAYOUT
         );
+        console.log('[upload] success:', {
+            userId,
+            filename: req.file.originalname,
+            size: req.file.size,
+            mime: req.file.mimetype,
+            fileId: data?.id
+        });
         res.json(data);
     } catch (error) {
         console.error('[upload] error:', error);
@@ -308,9 +373,9 @@ app.post('/api/dify/layout-grid', async (req, res) => {
             hasUserData: !!userData
         });
 
-        // if (!targetFileId || !userData?.floorIndex) {
-        //     return res.status(400).json({ error: 'Missing required fields.' });
-        // }
+        if (!targetFileId) {
+            return res.status(400).json({ error: 'Missing floor plan file ID.' });
+        }
 
         const payload = {
             inputs: {
@@ -323,7 +388,8 @@ app.post('/api/dify/layout-grid', async (req, res) => {
             query: '请分析这个户型图，将其划分为九宫格，并识别每个宫位的房间。',
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
-            user: DEFAULT_USER_ID,
+            // 使用与上传一致的 user（通常是邮箱），确保 Dify 可以访问对应的已上传文件
+            user: userData?.email || DEFAULT_USER_ID,
             files: [
                 {
                     type: 'image',
@@ -333,7 +399,26 @@ app.post('/api/dify/layout-grid', async (req, res) => {
             ]
         };
 
-        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
+        console.log('[layout-grid] Sending to Dify:', {
+            user: payload.user,
+            fileId: targetFileId
+        });
+
+        // Streaming mode (Agent 模式不支持 blocking)
+        const { fullAnswer, conversationId, events, firstErrorPayload, partial } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
+
+        if (!fullAnswer || fullAnswer.trim().length === 0) {
+            const errMsg =
+                firstErrorPayload?.error?.message ||
+                firstErrorPayload?.message ||
+                (firstErrorPayload ? JSON.stringify(firstErrorPayload) : 'Empty answer from Dify (no error payload)');
+
+            console.error('[layout-grid] Empty answer from Dify. First error payload:', firstErrorPayload, 'Events:', events);
+            return res.status(502).json({
+                error: `Dify streaming returned empty answer: ${errMsg}`,
+                events
+            });
+        }
 
         console.log('[layout-grid] Dify response:', {
             answerLength: fullAnswer?.length,
@@ -343,7 +428,8 @@ app.post('/api/dify/layout-grid', async (req, res) => {
         // Construct response in the format expected by frontend
         res.json({
             answer: fullAnswer,
-            conversation_id: conversationId
+            conversation_id: conversationId,
+            partial
         });
     } catch (error) {
         console.error('[layout-grid] error:', error);
@@ -378,7 +464,7 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
             response_mode: 'blocking',
             conversation_id: userData.conversationId || '',
-            user: DEFAULT_USER_ID
+            user: userData?.email || DEFAULT_USER_ID
         };
 
         const response = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
@@ -417,7 +503,7 @@ app.post('/api/dify/full-report', async (req, res) => {
             query: '请生成我的2026年完整风水报告。',
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
-            user: DEFAULT_USER_ID
+            user: userData?.email || DEFAULT_USER_ID
         };
 
         const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
