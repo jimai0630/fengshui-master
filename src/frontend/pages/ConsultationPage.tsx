@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle, ChevronLeft } from 'lucide-react';
+import { AlertCircle, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // Components
 import FloorPlanUploadSection from '../components/FloorPlanUploadSection';
-import EnergyAssessmentButton from '../components/EnergyAssessmentButton';
 import EnergyForecastSection from '../components/EnergyForecastSection';
 import PaymentSection from '../components/PaymentSection';
 import ReportSection from '../components/ReportSection';
+import ProcessingSection from '../components/ProcessingSection';
 
 // Services
 import { uploadFile, callLayoutGrid, callEnergySummary, callFullReport } from '../services/difyService';
@@ -48,8 +48,10 @@ const ConsultationPage: React.FC = () => {
     const [energySummaryResult, setEnergySummaryResult] = useState<EnergySummaryResponse | null>(null);
     const [fullReportResult, setFullReportResult] = useState<FullReportResponse | null>(null);
     const [conversationId, setConversationId] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Processing sub-state for the UI
+    const [processingStage, setProcessingStage] = useState<'analyzing_layout' | 'layout_success' | 'analyzing_energy' | null>(null);
 
     // Scroll to top on mount
     useEffect(() => {
@@ -99,37 +101,40 @@ const ConsultationPage: React.FC = () => {
         }
     }, [hasRequiredUserData, currentStep, navigate]);
 
-    // Handler: Floor plan upload complete
+    // Handler: Floor plan upload complete -> Start Chain
     const handleFloorPlanUploadComplete = async (
         uploads: FloorPlanUpload[],
         selectedHouseType: HouseType,
         newUserData: Partial<UserCompleteData>
     ) => {
-        // Merge new user data
+        // 1. Update initial state
         setUserData(prev => ({ ...prev, ...newUserData }));
         setFloorPlans(uploads);
         setHouseType(selectedHouseType);
+
+        // Transition to processing state
         setCurrentStep('floor-plan-analyzing');
+        setProcessingStage('analyzing_layout');
         setError(null);
 
         try {
-            setIsLoading(true);
+            // --- Step 1: Upload & Layout Analysis ---
 
-            // Upload all floor plan files to Dify
+            // Upload files
             const uploadPromises = uploads.map(upload =>
                 uploadFile(upload.file, newUserData.email!)
             );
             const uploadResults = await Promise.all(uploadPromises);
 
-            // Update floor plans with file IDs
+            // Update local state with file IDs
             const updatedFloorPlans = uploads.map((upload, idx) => ({
                 ...upload,
                 fileId: uploadResults[idx].id
             }));
             setFloorPlans(updatedFloorPlans);
 
-            // Prepare user data for Agent1
-            const completeUserData: UserCompleteData = {
+            // Prepare base user data
+            const baseUserData: UserCompleteData = {
                 ...newUserData,
                 email: newUserData.email!,
                 birthDate: newUserData.birthDate!,
@@ -139,82 +144,70 @@ const ConsultationPage: React.FC = () => {
                 languageMode: i18n.language === 'zh' ? 'zh' : 'en'
             };
 
-            // Call Agent1 (Layout Grid)
+            // Call to Agent 1 (Layout)
             const fileIds = uploadResults.map(r => r.id);
-            const { result, conversationId: newConvId } = await callLayoutGrid(
-                completeUserData,
+            const { result: layoutResult, conversationId: layoutConvId } = await callLayoutGrid(
+                baseUserData,
                 fileIds,
                 selectedHouseType,
                 i18n.language === 'zh' ? 'zh' : 'en'
             );
 
-            setConversationId(newConvId);
-
-            // Check if Agent1 succeeded
-            if (result.ok) {
-                setLayoutGridResult(result);
-                setCurrentStep('floor-plan-result');
-            } else {
-                // Agent1 failed
-                setError(result.error_message_for_user || t('consultation.errors.layoutGridFailed'));
-                setCurrentStep('floor-plan-upload');
+            if (!layoutResult.ok) {
+                // Layout Analysis Failed
+                throw new Error(layoutResult.error_message_for_user || t('consultation.errors.layoutGridFailed'));
             }
-        } catch (err) {
-            console.error('Floor plan analysis error:', err);
-            setError(t('consultation.errors.analysisError'));
-            setCurrentStep('floor-plan-upload');
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
-    // Handler: Start energy assessment
-    const handleStartEnergyAssessment = async () => {
-        setCurrentStep('energy-assessment');
-        setError(null);
+            setLayoutGridResult(layoutResult);
+            setConversationId(layoutConvId);
 
-        try {
-            setIsLoading(true);
+            // --- Step 2: Transition & Success UI ---
+            setProcessingStage('layout_success');
 
-            // Calculate benming star
+            // Wait 1.5s to show success state to user
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            setProcessingStage('analyzing_energy');
+
+            // --- Step 3: Energy Analysis ---
+
+            // Calculate Benming Star
             const { starNo, starName } = calculateBenmingFromDate(
-                userData.birthDate!,
-                userData.gender as '男' | '女'
+                baseUserData.birthDate,
+                baseUserData.gender
             );
 
-            // Prepare complete user data
+            // Complete user data for Agent 2
             const completeUserData: UserCompleteData = {
-                ...userData,
-                email: userData.email!,
-                birthDate: userData.birthDate!,
-                gender: userData.gender as '男' | '女',
-                floorIndex: 1,
-                houseType,
-                houseGridJson: JSON.stringify(layoutGridResult),
-                conversationId,
+                ...baseUserData,
+                houseGridJson: JSON.stringify(layoutResult),
+                conversationId: layoutConvId,
                 benmingStarNo: starNo,
-                benmingStarName: starName,
-                languageMode: i18n.language === 'zh' ? 'zh' : 'en'
+                benmingStarName: starName
             };
-
             setUserData(completeUserData);
 
-            // Call Agent2 (Energy Summary)
-            const { result, conversationId: newConvId } = await callEnergySummary(
+            // Call Agent 2 (Energy Summary)
+            const { result: energyResult, conversationId: energyConvId } = await callEnergySummary(
                 completeUserData,
-                JSON.stringify(layoutGridResult),
+                JSON.stringify(layoutResult),
                 'energy_summary'
             );
 
-            setConversationId(newConvId);
-            setEnergySummaryResult(result);
+            setConversationId(energyConvId);
+            setEnergySummaryResult(energyResult);
+
+            // --- Step 4: Show Results ---
+            setProcessingStage(null);
             setCurrentStep('energy-result');
-        } catch (err) {
-            console.error('Energy assessment error:', err);
-            setError(t('consultation.errors.energyAssessmentError'));
-            setCurrentStep('floor-plan-result');
-        } finally {
-            setIsLoading(false);
+
+        } catch (err: any) {
+            console.error('Consultation flow error:', err);
+
+            // If error occurs, go back to upload and show error
+            setError(err.message || t('consultation.errors.analysisError'));
+            setCurrentStep('floor-plan-upload');
+            setProcessingStage(null);
         }
     };
 
@@ -226,10 +219,9 @@ const ConsultationPage: React.FC = () => {
     // Handler: Payment success
     const handlePaymentSuccess = async () => {
         setError(null);
-
+        // Note: For payment processing, we might also want to use a unified loader, 
+        // but keeping existing local loading state for simplicity unless requested
         try {
-            setIsLoading(true);
-
             // Call Agent2 (Full Report)
             const { result } = await callFullReport(
                 userData as UserCompleteData,
@@ -242,8 +234,6 @@ const ConsultationPage: React.FC = () => {
         } catch (err) {
             console.error('Report generation error:', err);
             setError(t('consultation.errors.reportGenerationError'));
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -252,7 +242,7 @@ const ConsultationPage: React.FC = () => {
         setError(errorMessage);
     };
 
-    // Handler: Retry from error
+    // Handler: Retry from error (UI button)
     const handleRetry = () => {
         setError(null);
         setCurrentStep('floor-plan-upload');
@@ -262,12 +252,20 @@ const ConsultationPage: React.FC = () => {
 
     // Handler: Back to previous step
     const handleBack = () => {
+        // Prevent back during heavy processing
+        if (processingStage) return;
+
         switch (currentStep) {
-            case 'floor-plan-result':
-                setCurrentStep('floor-plan-upload');
-                break;
+            // Note: 'floor-plan-analyzing' is automatic, so we don't handle back from it usually
             case 'energy-result':
-                setCurrentStep('floor-plan-result');
+                // Creating a "back" from results might mean re-uploading, 
+                // or we could just warn them they lose progress.
+                if (window.confirm(t('consultation.confirmBackStartOver'))) {
+                    setCurrentStep('floor-plan-upload');
+                    setFloorPlans([]);
+                    setLayoutGridResult(null);
+                    setEnergySummaryResult(null);
+                }
                 break;
             case 'payment':
                 setCurrentStep('energy-result');
@@ -283,7 +281,7 @@ const ConsultationPage: React.FC = () => {
             <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     {/* Back Button */}
-                    {currentStep !== 'floor-plan-upload' && currentStep !== 'floor-plan-analyzing' && currentStep !== 'energy-assessment' && currentStep !== 'report' && (
+                    {['energy-result', 'payment', 'report'].includes(currentStep) && (
                         <button
                             onClick={handleBack}
                             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-3"
@@ -299,10 +297,11 @@ const ConsultationPage: React.FC = () => {
                             <span className={`${['floor-plan-upload', 'floor-plan-analyzing'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : ['floor-plan-result', 'energy-assessment', 'energy-result', 'payment', 'report'].includes(currentStep) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {t('consultation.steps.upload')}
                             </span>
-                            <span className={`${['floor-plan-result', 'energy-assessment'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : ['energy-result', 'payment', 'report'].includes(currentStep) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {/* Merged Analysis Step */}
+                            <span className={`${['floor-plan-result', 'energy-assessment', 'energy-result'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : ['payment', 'report'].includes(currentStep) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {t('consultation.steps.analysis')}
                             </span>
-                            <span className={`${['energy-result', 'payment'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : currentStep === 'report' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <span className={`${['payment'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : currentStep === 'report' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {t('consultation.steps.report')}
                             </span>
                         </div>
@@ -310,10 +309,11 @@ const ConsultationPage: React.FC = () => {
                             <div
                                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500 ease-out"
                                 style={{
-                                    width: currentStep === 'floor-plan-upload' || currentStep === 'floor-plan-analyzing' ? '0%'
-                                        : currentStep === 'floor-plan-result' || currentStep === 'energy-assessment' ? '33.33%'
-                                            : currentStep === 'energy-result' || currentStep === 'payment' ? '66.66%'
-                                                : currentStep === 'report' ? '100%' : '0%'
+                                    width: currentStep === 'floor-plan-upload' ? '10%'
+                                        : currentStep === 'floor-plan-analyzing' ? '40%'
+                                            : currentStep === 'energy-result' ? '70%' // Analysis Complete
+                                                : currentStep === 'payment' ? '85%'
+                                                    : currentStep === 'report' ? '100%' : '0%'
                                 }}
                             />
                         </div>
@@ -322,18 +322,13 @@ const ConsultationPage: React.FC = () => {
             </div>
 
             {/* Error Display */}
-            {error && (
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {error && currentStep === 'floor-plan-upload' && (
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-slide-down">
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-                            <button
-                                onClick={handleRetry}
-                                className="mt-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                            >
-                                {t('consultation.retry')}
-                            </button>
+                            <div className="text-xs text-red-600/80 mt-1">Please ensure your floor plan image is clear and contains visible room boundaries.</div>
                         </div>
                     </div>
                 </div>
@@ -345,49 +340,19 @@ const ConsultationPage: React.FC = () => {
                 {currentStep === 'floor-plan-upload' && (
                     <FloorPlanUploadSection
                         onComplete={handleFloorPlanUploadComplete}
-                        onAnalyzing={() => setCurrentStep('floor-plan-analyzing')}
+                        // We handle the loading state locally via the 'processing' step, 
+                        // effectively 'onAnalyzing' triggers the state change in the parent
+                        onAnalyzing={() => { }}
+                        isProcessing={false} // We don't use the child's processing state since we have a dedicated page
                     />
                 )}
 
-                {/* Step 2: Analyzing */}
-                {currentStep === 'floor-plan-analyzing' && (
-                    <div className="py-20 px-4 sm:px-6 lg:px-8 flex items-center justify-center min-h-[60vh]">
-                        <div className="text-center">
-                            <Loader2 className="w-16 h-16 mx-auto text-amber-600 animate-spin mb-6" />
-                            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                                {t('consultation.analyzing.title')}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
-                                {t('consultation.analyzing.message')}
-                            </p>
-                        </div>
-                    </div>
+                {/* Unified Processing Step (Layout + Energy) */}
+                {currentStep === 'floor-plan-analyzing' && processingStage && (
+                    <ProcessingSection currentStage={processingStage} />
                 )}
 
-                {/* Step 3: Floor Plan Result + Energy Assessment Button */}
-                {currentStep === 'floor-plan-result' && layoutGridResult && (
-                    <EnergyAssessmentButton
-                        onClick={handleStartEnergyAssessment}
-                        loading={false}
-                    />
-                )}
-
-                {/* Step 4: Energy Assessment Loading */}
-                {currentStep === 'energy-assessment' && (
-                    <div className="py-20 px-4 sm:px-6 lg:px-8 flex items-center justify-center min-h-[60vh]">
-                        <div className="text-center">
-                            <Loader2 className="w-16 h-16 mx-auto text-amber-600 animate-spin mb-6" />
-                            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                                {t('consultation.energyAssessment.title')}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
-                                {t('consultation.energyAssessment.message')}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 5: Energy Result */}
+                {/* Step 3: Energy Result */}
                 {currentStep === 'energy-result' && energySummaryResult && (
                     <div>
                         <EnergyForecastSection
@@ -397,7 +362,7 @@ const ConsultationPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Step 6: Payment */}
+                {/* Step 4: Payment */}
                 {currentStep === 'payment' && (
                     <PaymentSection
                         reportPrice={REPORT_PRICE}
@@ -406,7 +371,7 @@ const ConsultationPage: React.FC = () => {
                     />
                 )}
 
-                {/* Step 7: Report */}
+                {/* Step 5: Report */}
                 {currentStep === 'report' && fullReportResult && (
                     <ReportSection
                         report={fullReportResult}
@@ -415,17 +380,14 @@ const ConsultationPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Loading Overlay */}
-            {isLoading && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-2xl">
-                        <Loader2 className="w-12 h-12 mx-auto text-amber-600 animate-spin mb-4" />
-                        <p className="text-gray-800 dark:text-white font-medium">
-                            {t('consultation.processing')}
-                        </p>
-                    </div>
-                </div>
-            )}
+            {/* Global Loader for payment/report generation if needed, 
+                or we can reuse ProcessingSection if we want to expand it later */}
+            {/* Note: currentStep 'report' generation usually happens inside PaymentSection or separate overlay.
+                 If we want to show generic loading for other non-flow parts: */}
+            {(!processingStage && currentStep !== 'floor-plan-analyzing') &&
+                // Check if we are in a 'sub-loading' state like payment processing? 
+                // For now simpler to keep component-level loaders for payment.
+                null}
         </div>
     );
 };

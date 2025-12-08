@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, X, Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Upload, X, Plus, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import type { HouseType, FloorPlanUpload, UserCompleteData } from '../types/dify';
 
 interface FloorPlanUploadSectionProps {
     initialUserData?: Partial<UserCompleteData>;
     onComplete: (uploads: FloorPlanUpload[], houseType: HouseType, userData: Partial<UserCompleteData>) => void;
     onAnalyzing: () => void;
+    isProcessing?: boolean;
 }
 
 const HOUSE_TYPE_FLOOR_DEFAULTS: Record<HouseType, number> = {
@@ -22,7 +23,8 @@ const MAX_FLOORS = 3;
 const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
     initialUserData,
     onComplete,
-    onAnalyzing
+    onAnalyzing,
+    isProcessing = false
 }) => {
     const { t } = useTranslation();
 
@@ -211,8 +213,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 onChange={(e) => setName(e.target.value)}
                                 disabled={!!initialUserData?.name}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.name
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>
@@ -226,8 +228,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={!!initialUserData?.email}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.email
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>
@@ -242,8 +244,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 disabled={!!initialUserData?.birthDate}
                                 max={new Date().toISOString().split('T')[0]}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.birthDate
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>
@@ -404,10 +406,17 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                 {/* Analyze Button */}
                 <button
                     onClick={handleAnalyze}
-                    disabled={!canAnalyze}
+                    disabled={!canAnalyze || isProcessing}
                     className="w-full py-3 px-6 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 text-white font-bold text-lg rounded-full shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                    {t('houseDetails.upload.analyze')}
+                    {isProcessing ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Processing...
+                        </span>
+                    ) : (
+                        t('houseDetails.upload.analyze')
+                    )}
                 </button>
             </div>
         </section>
