@@ -76,12 +76,17 @@ async function postStreamingToDify(path, body, apiKey) {
 
     for await (const chunk of response.body) {
         const text = decoder.decode(chunk, { stream: true });
+        // console.log('[Dify Stream Raw]', text.slice(0, 100)); // Log first 100 chars of chunk for debug
+
         const lines = text.split('\n');
 
         for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const payload = line.slice(6).trim();
-            if (!payload) continue;
+            const trimmedLine = line.trim();
+            if (!trimmedLine.startsWith('data:')) continue;
+
+            // Handle both "data: {...}" and "data:{...}"
+            const payload = trimmedLine.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
 
             try {
                 const data = JSON.parse(payload);
@@ -93,10 +98,12 @@ async function postStreamingToDify(path, body, apiKey) {
                     fullAnswer += data.answer;
                 }
             } catch (e) {
-                // Ignore parse errors for partial chunks or non-JSON data
+                console.warn('[Dify Stream] Parse error for line:', trimmedLine, e);
             }
         }
     }
+
+    console.log('[Dify Stream Final] Full Answer length:', fullAnswer.length, 'Content:', fullAnswer.substring(0, 50) + '...');
 
     return { fullAnswer, conversationId };
 }
@@ -290,9 +297,18 @@ app.post('/api/dify/chat', async (req, res) => {
  */
 app.post('/api/dify/layout-grid', async (req, res) => {
     try {
-        const { floorPlanFileId, floorPlanDesc, userData } = req.body;
+        const { floorPlanFileId, floorPlanFileIds, floorPlanDesc, userData } = req.body;
 
-        // if (!floorPlanFileId || !userData?.floorIndex) {
+        // Support both single file ID and array of IDs (take the first one)
+        const targetFileId = floorPlanFileId || (floorPlanFileIds && floorPlanFileIds.length > 0 ? floorPlanFileIds[0] : null);
+
+        console.log('[layout-grid] Request received:', {
+            hasFileId: !!targetFileId,
+            fileId: targetFileId,
+            hasUserData: !!userData
+        });
+
+        // if (!targetFileId || !userData?.floorIndex) {
         //     return res.status(400).json({ error: 'Missing required fields.' });
         // }
 
@@ -311,13 +327,18 @@ app.post('/api/dify/layout-grid', async (req, res) => {
             files: [
                 {
                     type: 'image',
-                    transfer_method: 'remote_url',
-                    url: floorPlanFileId
+                    transfer_method: 'local_file',
+                    upload_file_id: targetFileId
                 }
             ]
         };
 
         const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_LAYOUT);
+
+        console.log('[layout-grid] Dify response:', {
+            answerLength: fullAnswer?.length,
+            conversationId
+        });
 
         // Construct response in the format expected by frontend
         res.json({
