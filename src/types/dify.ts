@@ -68,15 +68,23 @@ export interface FloorPlanUpload {
 }
 
 // Consultation Workflow Steps
+// Consultation Workflow Steps
 export type ConsultationStep =
     | 'user-info'
     | 'floor-plan-upload'
-    | 'floor-plan-analyzing'
-    | 'floor-plan-result'
-    | 'energy-assessment'
+    | 'floor-plan-analyzing' // Deprecated in new flow, but kept for type safety
+    | 'processing'           // NEW: Replaces separate analyzing steps
+    | 'floor-plan-result'    // Deprecated?
+    | 'energy-assessment'    // Deprecated?
     | 'energy-result'
     | 'payment'
     | 'report';
+
+export type ProcessingStage =
+    | 'analyzing_layout'
+    | 'layout_success'
+    | 'analyzing_energy'
+    | 'error_energy';
 
 export interface EnergySummaryResponse {
     scores_before: {
@@ -107,6 +115,7 @@ export interface EnergySummaryResponse {
         health: string;
         luck: string;
     };
+    overall_summary?: string; // 整体总结文字
 }
 
 export interface FullReportResponse {

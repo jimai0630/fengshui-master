@@ -157,11 +157,22 @@ i18n
                         back: "Back",
                         retry: "Retry",
                         processing: "Processing...",
+                        confirmRestart: "Start over? Current analysis will be lost.",
                         analyzing: {
                             title: "Analyzing Floor Plan...",
                             message: "Our AI is identifying room structures and orientations.",
+                            energyTitle: "Analyzing Home Energy...",
+                            energyMessage: "Calculating energy flows based on the 9-Palace grid...",
                             success: "Structure Recognized!",
                             successDesc: "Floor plan successfully parsed."
+                        },
+                        success: {
+                            layout: "Image Analysis Successful!",
+                            message: "Structure identified. Preparing energy analysis..."
+                        },
+                        error: {
+                            title: "Analysis Interrupted",
+                            generic: "Something went wrong during energy analysis."
                         },
                         energyAssessment: {
                             title: "Calculating Energy Flow...",
@@ -426,7 +437,28 @@ i18n
                         steps: {
                             upload: "上传",
                             analysis: "分析",
-                        }
+                            report: "报告"
+                        },
+                        back: "返回",
+                        retry: "重试",
+                        processing: "处理中...",
+                        confirmRestart: "重新开始？当前的分析结果将会丢失。",
+                        analyzing: {
+                            title: "正在分析您的户型图...",
+                            message: "我们的AI正在识别房间结构和方位。",
+                            energyTitle: "正在分析居家能量...",
+                            energyMessage: "基于九宫飞星图计算能量流动...",
+                            success: "结构识别成功！",
+                            successDesc: "户型图解析完成。"
+                        },
+                        success: {
+                            layout: "图片分析成功！",
+                            message: "结构已识别，正在准备能量分析..."
+                        },
+                        error: {
+                            title: "分析中断",
+                            generic: "能量分析过程中出现了问题。"
+                        },
                     },
                     dify: {
                         uploading: "上传中...",

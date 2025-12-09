@@ -422,7 +422,7 @@ app.post('/api/dify/layout-grid', async (req, res) => {
 
         console.log('[layout-grid] Dify response:', {
             answerLength: fullAnswer?.length,
-            conversationId, 
+            conversationId,
             answer: fullAnswer
         });
 
@@ -457,19 +457,23 @@ app.post('/api/dify/energy-summary', async (req, res) => {
                 benming_star_no: userData.benmingStarNo,
                 benming_star_name: userData.benmingStarName,
                 house_type: userData.houseType || 'apartment',
-                floor_index: userData.floorIndex,
+                floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
                 room_photos_desc: roomPhotosDesc || '',
                 language_mode: userData.languageMode || 'zh'
             },
             query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
-            response_mode: 'blocking',
+            response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             user: userData?.email || DEFAULT_USER_ID
         };
 
-        const response = await postJsonToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
-        res.json(response);
+        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
+
+        res.json({
+            answer: fullAnswer,
+            conversation_id: conversationId
+        });
     } catch (error) {
         console.error('[energy-summary] error:', error);
         res.status(500).json({ error: error.message || 'Energy summary failed' });
