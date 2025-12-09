@@ -32,15 +32,27 @@ app.use(express.json({ limit: '10mb' }));
 // 简单的重试封装，用于临时性网络错误或 5xx
 async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {}) {
     let lastError;
+    // Default timeout 120s for Dify calls to handle slow models
+    const TIMEOUT_MS = 120000;
+
     for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
         try {
-            const res = await fetch(url, options);
+            const res = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
             if (!res.ok && res.status >= 500 && attempt < retries) {
                 await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
                 continue;
             }
             return res;
         } catch (err) {
+            clearTimeout(timeoutId);
             lastError = err;
             // 仅对常见网络错误进行重试
             const transient =
@@ -60,6 +72,8 @@ async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {
  * Helper: call Dify JSON endpoint
  */
 async function postJsonToDify(path, body, apiKey) {
+    // Disable retries for Dify calls to prevent double-charging/double-execution
+    // if the response is slow but actually processing.
     const response = await fetchWithRetry(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
@@ -67,7 +81,7 @@ async function postJsonToDify(path, body, apiKey) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
-    });
+    }, { retries: 0 });
 
     if (!response.ok) {
         const message = await response.text();
@@ -81,6 +95,7 @@ async function postJsonToDify(path, body, apiKey) {
  * Helper: call Dify streaming endpoint and aggregate result
  */
 async function postStreamingToDify(path, body, apiKey) {
+    // Disable retries for Dify calls to prevent double-charging/double-execution
     const response = await fetchWithRetry(`${DIFY_BASE_URL}${path}`, {
         method: 'POST',
         headers: {
@@ -88,7 +103,7 @@ async function postStreamingToDify(path, body, apiKey) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
-    });
+    }, { retries: 0 });
 
     if (!response.ok) {
         const message = await response.text();
@@ -469,6 +484,8 @@ app.post('/api/dify/energy-summary', async (req, res) => {
         };
 
         const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
+
+        console.log('[energy-summary] raw dify answer:', fullAnswer);
 
         res.json({
             answer: fullAnswer,

@@ -62,38 +62,42 @@ const ConsultationPage: React.FC = () => {
 
     // Load saved state if user has email
     useEffect(() => {
-        if (userData.email) {
-            const savedState = loadConsultationState(userData.email);
-            if (savedState) {
-                // Return 'processing' state to 'floor-plan-upload' if getting stuck
-                // Or resume intelligently based on existing results
-                let step = savedState.currentStep;
-                if (step === 'floor-plan-analyzing' || step === 'energy-assessment') {
-                    // Legacy steps mapping
-                    step = 'processing';
-                }
+        const loadSavedState = async () => {
+            if (userData.email) {
+                const savedState = await loadConsultationState(userData.email);
+                if (savedState) {
+                    // Return 'processing' state to 'floor-plan-upload' if getting stuck
+                    // Or resume intelligently based on existing results
+                    let step = savedState.currentStep;
+                    if (step === 'floor-plan-analyzing' || step === 'energy-assessment') {
+                        // Legacy steps mapping
+                        step = 'processing';
+                    }
 
-                setCurrentStep(step);
-                setUserData(savedState.userData);
-                setFloorPlans(savedState.floorPlans);
-                setLayoutGridResult(savedState.layoutGridResult || null);
-                setEnergySummaryResult(savedState.energySummaryResult || null);
-                setFullReportResult(savedState.fullReportResult || null);
-                setConversationId(savedState.conversationId || '');
+                    setCurrentStep(step);
+                    setUserData(savedState.userData);
+                    setFloorPlans(savedState.floorPlans);
+                    setLayoutGridResult(savedState.layoutGridResult || null);
+                    setEnergySummaryResult(savedState.energySummaryResult || null);
+                    setFullReportResult(savedState.fullReportResult || null);
+                    setConversationId(savedState.conversationId || '');
+                    setHouseType(savedState.houseType);
 
-                // Resume processing stage logic
-                if (step === 'processing') {
-                    if (savedState.layoutGridResult) {
-                        setProcessingStage('analyzing_energy');
-                        // Ideally trigger energy analysis if not done, but for now user might need to retry manually if interrupted
-                        // Or we can auto-trigger in a useEffect. 
-                        // Simplified: restart layout analysis if no result, or energy if layout exists.
-                    } else {
-                        setProcessingStage('analyzing_layout');
+                    if (step === 'processing') {
+                        if (savedState.layoutGridResult) {
+                            setProcessingStage('analyzing_energy');
+                            // Ideally trigger energy analysis if not done, but for now user might need to retry manually if interrupted
+                            // Or we can auto-trigger in a useEffect. 
+                            // Simplified: restart layout analysis if no result, or energy if layout exists.
+                        } else {
+                            setProcessingStage('analyzing_layout');
+                        }
                     }
                 }
             }
-        }
+        };
+
+        loadSavedState();
     }, [userData.email]);
 
     // Save state whenever it changes
@@ -393,7 +397,6 @@ const ConsultationPage: React.FC = () => {
                     />
                 )}
 
-                {/* Step 2: Processing (Replacing Analyzing + Result + Energy Assessment) */}
                 {currentStep === 'processing' && (
                     <ProcessingSection
                         currentStage={processingStage}

@@ -156,16 +156,44 @@ export async function callEnergySummary(
     }
 
     const resultData = await response.json();
+    console.log('[Dify] Raw Energy Summary Response:', resultData); // Debug log
 
     // 解析返回的JSON
     let result: EnergySummaryResponse;
     try {
-        // 提取JSON部分（可能包含在其他文本中）
         const answerText = resultData.answer || '';
-        const jsonMatch = answerText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            result = JSON.parse(jsonMatch[0]);
+        console.log('[Dify] Answer Text Length:', answerText.length);
+
+        // 1. 寻找 JSON 的起始和结束位置
+        const firstBrace = answerText.indexOf('{');
+        const lastBrace = answerText.lastIndexOf('}');
+
+        // 如果找到了可能的 JSON 对象
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const jsonString = answerText.substring(firstBrace, lastBrace + 1);
+
+            try {
+                result = JSON.parse(jsonString);
+
+                // 2. 提取 JSON 之外的文本作为 summary
+                const preText = answerText.substring(0, firstBrace).replace(/```json\s*|```/g, '').trim();
+                const postText = answerText.substring(lastBrace + 1).replace(/```/g, '').trim();
+                const combinedSummary = [preText, postText].filter(Boolean).join('\n\n').trim();
+
+                if (combinedSummary && combinedSummary.length > 5) {
+                    result.overall_summary = combinedSummary;
+                    console.log('[Dify] Extracted overall_summary from text:', combinedSummary.substring(0, 50) + '...');
+                } else if (result.overall_summary) {
+                    console.log('[Dify] Using JSON provided overall_summary');
+                } else {
+                    console.warn('[Dify] No overall_summary found in JSON or text');
+                }
+            } catch (e) {
+                console.warn('[Dify] Found braces but failed to parse JSON', e);
+                throw new Error('JSON parsing failed inside response');
+            }
         } else {
+            console.warn('[Dify] No JSON braces found in energy summary response');
             throw new Error('No JSON found in response');
         }
     } catch (error) {

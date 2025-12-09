@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ProcessingStage } from '../types/dify';
+import FengShuiLoading from './FengShuiLoading';
 
 interface ProcessingSectionProps {
     currentStage: ProcessingStage;
@@ -15,6 +16,11 @@ const ProcessingSection: React.FC<ProcessingSectionProps> = ({
     onRetry
 }) => {
     const { t } = useTranslation();
+
+    // Special handling/override for Energy Analysis using the new FengShuiLoading
+    if (currentStage === 'analyzing_energy') {
+        return <FengShuiLoading />;
+    }
 
     // Mapping stages to UI content
     const getContent = () => {
@@ -34,6 +40,7 @@ const ProcessingSection: React.FC<ProcessingSectionProps> = ({
                     color: 'text-green-600'
                 };
             case 'analyzing_energy':
+                // This case is now handled by the early return above, but kept for type safety/fallback
                 return {
                     icon: (
                         <div className="relative">
@@ -66,7 +73,7 @@ const ProcessingSection: React.FC<ProcessingSectionProps> = ({
     const content = getContent();
 
     return (
-        <div className="flex flax-col items-center justify-center min-h-[60vh] py-12 px-4">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4">
             <div className="max-w-md w-full text-center space-y-6 p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-500">
 
                 {/* Icon Container with Glow */}

@@ -229,9 +229,15 @@ const UserInfoSection: React.FC = () => {
                             <button
                                 onClick={() => {
                                     setShowModal(false);
-                                    // Navigate to consultation page
+                                    // Navigate to consultation page with user data
                                     setTimeout(() => {
-                                        navigate('/consultation');
+                                        navigate('/consultation', {
+                                            state: {
+                                                name: nickname,
+                                                birthDate: birthDate,
+                                                email: email
+                                            }
+                                        });
                                     }, 100);
                                 }}
                                 className="w-full py-3 px-4 bg-primary text-white rounded-md hover:bg-amber-700 transition-colors font-medium"
