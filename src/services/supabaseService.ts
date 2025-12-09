@@ -1,9 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Check if Supabase is configured
+const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+    console.warn('[Supabase] Not configured. Using localStorage only. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud sync.');
+}
+
+export const supabase: SupabaseClient | null = isSupabaseConfigured
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
 
 // Database Types
 export interface ConsultationRecord {
@@ -43,6 +52,11 @@ export function generateFloorPlansHash(fileIds: string[]): string {
  * Save consultation state to Supabase
  */
 export async function saveConsultationToSupabase(record: Omit<ConsultationRecord, 'id' | 'created_at' | 'updated_at'>) {
+    if (!supabase) {
+        console.warn('[Supabase] Client not configured, skipping save');
+        return null;
+    }
+
     try {
         const { data, error } = await supabase
             .from('consultations')
@@ -70,6 +84,11 @@ export async function loadConsultationFromSupabase(
     houseType: string,
     floorPlansHash: string
 ): Promise<ConsultationRecord | null> {
+    if (!supabase) {
+        console.warn('[Supabase] Client not configured, skipping load');
+        return null;
+    }
+
     try {
         const { data, error } = await supabase
             .from('consultations')
@@ -100,6 +119,11 @@ export async function updatePaymentStatus(
     fullReportResult: any,
     reportConversationId: string
 ) {
+    if (!supabase) {
+        console.warn('[Supabase] Client not configured, skipping payment update');
+        return null;
+    }
+
     try {
         const { data, error } = await supabase
             .from('consultations')
