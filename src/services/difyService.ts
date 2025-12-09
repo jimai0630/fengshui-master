@@ -98,9 +98,22 @@ export async function callLayoutGrid(
     // 解析返回的JSON
     let result: LayoutGridResponse;
     try {
-        // Dify可能在answer中返回JSON字符串
+        // Dify可能在answer中返回JSON字符串，可能包含markdown代码块
         const answerText = resultData.answer || '{}';
-        result = JSON.parse(answerText);
+
+        // 提取第一个{到最后一个}之间的内容
+        const firstBrace = answerText.indexOf('{');
+        const lastBrace = answerText.lastIndexOf('}');
+
+        if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+            console.error('[callLayoutGrid] No valid JSON found in answer:', answerText.substring(0, 200));
+            throw new Error('No JSON object found in response');
+        }
+
+        const jsonString = answerText.substring(firstBrace, lastBrace + 1);
+        console.log('[callLayoutGrid] Extracted JSON string (first 300 chars):', jsonString.substring(0, 300));
+
+        result = JSON.parse(jsonString);
 
         // 验证必需字段
         if (typeof result.ok === 'undefined') {
