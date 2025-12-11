@@ -40,6 +40,7 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const isSubmitting = useRef(false);
 
     // Update floor count when house type changes
     const handleHouseTypeChange = (newType: HouseType) => {
@@ -147,6 +148,12 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
     };
 
     const handleAnalyze = () => {
+        // Prevent double submission
+        if (isSubmitting.current) {
+            console.warn('[FloorPlanUpload] Already submitting, ignoring duplicate click');
+            return;
+        }
+
         // Validate user info
         if (!email || !gender || !birthDate) {
             setError(t('floorPlan.errors.missingUserInfo'));
@@ -159,6 +166,9 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
             setError(t('floorPlan.errors.missingFiles'));
             return;
         }
+
+        isSubmitting.current = true;
+        console.log('[FloorPlanUpload] Starting analysis...');
 
         const userData: Partial<UserCompleteData> = {
             name: name.trim() || undefined,
@@ -211,8 +221,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 onChange={(e) => setName(e.target.value)}
                                 disabled={!!initialUserData?.name}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.name
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>
@@ -226,8 +236,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={!!initialUserData?.email}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.email
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>
@@ -242,8 +252,8 @@ const FloorPlanUploadSection: React.FC<FloorPlanUploadSectionProps> = ({
                                 disabled={!!initialUserData?.birthDate}
                                 max={new Date().toISOString().split('T')[0]}
                                 className={`w-full px-3 py-2 rounded-md border text-sm ${initialUserData?.birthDate
-                                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+                                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent'
                                     }`}
                             />
                         </div>

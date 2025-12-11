@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +55,9 @@ const ConsultationPage: React.FC = () => {
     // New state for granular processing progress
     const [processingStage, setProcessingStage] = useState<ProcessingStage>('analyzing_layout');
 
+    // Ref to prevent double execution of energy analysis
+    const isExecutingEnergyAnalysis = useRef(false);
+
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -63,6 +66,17 @@ const ConsultationPage: React.FC = () => {
     // Load saved state if user has email
     useEffect(() => {
         const loadSavedState = async () => {
+            // Check for reset flag from homepage navigation
+            const shouldReset = (location.state as any)?.reset;
+
+            if (shouldReset) {
+                console.log('Resetting consultation state due to fresh navigation');
+                // Clear any existing state logic if needed, or just don't load.
+                // But we might want to clear the actual localStorage too so a refresh doesn't bring it back?
+                // For now, simply not loading the old state is enough for this session.
+                return;
+            }
+
             if (userData.email) {
                 const savedState = await loadConsultationState(userData.email);
                 if (savedState) {
@@ -98,7 +112,7 @@ const ConsultationPage: React.FC = () => {
         };
 
         loadSavedState();
-    }, [userData.email]);
+    }, [userData.email, location.state]);
 
     // Save state whenever it changes
     useEffect(() => {
@@ -127,10 +141,19 @@ const ConsultationPage: React.FC = () => {
     }, [hasRequiredUserData, currentStep, navigate]);
 
     // Helper: Execute Energy Analysis
-    const executeEnergyAnalysis = async (
+    const executeEnergyAnalysis = useCallback(async (
         curUserData: Partial<UserCompleteData>,
         curLayoutResult: LayoutGridResponse
     ) => {
+        // Prevent double execution
+        if (isExecutingEnergyAnalysis.current) {
+            console.warn('[ConsultationPage] Energy analysis already in progress, skipping duplicate call');
+            return;
+        }
+
+        isExecutingEnergyAnalysis.current = true;
+        console.log('[ConsultationPage] Starting energy analysis...');
+
         try {
             setProcessingStage('analyzing_energy');
             setError(null);
@@ -175,8 +198,10 @@ const ConsultationPage: React.FC = () => {
             // DO NOT reset steps. Stay in processing but show error.
             setProcessingStage('error_energy');
             setError(t('consultation.errors.energyAssessmentError'));
+        } finally {
+            isExecutingEnergyAnalysis.current = false;
         }
-    };
+    }, [houseType, i18n.language, t]);
 
     // Handler: Floor plan upload complete (Entry Point for the Chain)
     const handleFloorPlanUploadComplete = async (
@@ -231,11 +256,7 @@ const ConsultationPage: React.FC = () => {
             if (result.ok) {
                 setLayoutGridResult(result);
                 setProcessingStage('layout_success');
-
-                // 5. Auto-trigger Agent 2 after short delay
-                setTimeout(() => {
-                    executeEnergyAnalysis(completeUserData, result);
-                }, 1500);
+                // Energy analysis will be triggered by useEffect below
             } else {
                 // Agent 1 Logic failure
                 setError(result.error_message_for_user || t('consultation.errors.layoutGridFailed'));
@@ -247,6 +268,24 @@ const ConsultationPage: React.FC = () => {
             setCurrentStep('floor-plan-upload');
         }
     };
+
+    // Auto-trigger Energy Analysis when layout analysis succeeds
+    // This useEffect ensures it only runs once even with React Strict Mode
+    useEffect(() => {
+        if (
+            layoutGridResult?.ok &&
+            processingStage === 'layout_success' &&
+            !energySummaryResult // Prevent re-running if already done
+        ) {
+            const timer = setTimeout(() => {
+                console.log('[ConsultationPage] Auto-triggering energy analysis...');
+                // Ensure we use the latest userData
+                executeEnergyAnalysis(userData, layoutGridResult);
+            }, 800); // Reduced delay for better UX
+
+            return () => clearTimeout(timer);
+        }
+    }, [layoutGridResult, processingStage, energySummaryResult, userData, executeEnergyAnalysis]);
 
     // Handler: Retry Energy Analysis (For Agent 2 failure)
     const handleRetryEnergy = () => {

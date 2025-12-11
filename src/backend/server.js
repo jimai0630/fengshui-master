@@ -30,7 +30,15 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // 简单的重试封装，用于临时性网络错误或 5xx
-async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {}) {
+import http from 'http';
+import https from 'https';
+
+// Keep-alive agents to prevent spurios ECONNRESET
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
+// 简单的重试封装，用于临时性网络错误或 5xx
+async function fetchWithRetry(url, options, { retries = 2, backoffMs = 1000 } = {}) {
     let lastError;
     // Default timeout 120s for Dify calls to handle slow models
     const TIMEOUT_MS = 120000;
@@ -40,14 +48,18 @@ async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
         try {
+            const agent = url.startsWith('https') ? httpsAgent : httpAgent;
             const res = await fetch(url, {
                 ...options,
-                signal: controller.signal
+                signal: controller.signal,
+                agent
             });
             clearTimeout(timeoutId);
 
             if (!res.ok && res.status >= 500 && attempt < retries) {
-                await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+                const waitTime = backoffMs * (attempt + 1);
+                console.warn(`[fetchWithRetry] 5xx error (${res.status}), retrying in ${waitTime}ms... (Attempt ${attempt + 1}/${retries})`);
+                await new Promise(r => setTimeout(r, waitTime));
                 continue;
             }
             return res;
@@ -58,8 +70,11 @@ async function fetchWithRetry(url, options, { retries = 2, backoffMs = 800 } = {
             const transient =
                 err?.code &&
                 ['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED'].includes(err.code);
+
             if (attempt < retries && transient) {
-                await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+                const waitTime = backoffMs * (attempt + 1);
+                console.warn(`[fetchWithRetry] Network error (${err.code}), retrying in ${waitTime}ms... (Attempt ${attempt + 1}/${retries})`);
+                await new Promise(r => setTimeout(r, waitTime));
                 continue;
             }
             throw err;
@@ -483,14 +498,39 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             user: userData?.email || DEFAULT_USER_ID
         };
 
-        const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
+        // Retry logic specifically for slow model responses
+        let lastError;
+        const MAX_RETRIES = 1; // Limit to 1 retry to avoid excessive duplicates
 
-        console.log('[energy-summary] raw dify answer:', fullAnswer);
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                console.log(`[energy-summary] Attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
 
-        res.json({
-            answer: fullAnswer,
-            conversation_id: conversationId
-        });
+                const { fullAnswer, conversationId } = await postStreamingToDify('/chat-messages', payload, DIFY_API_KEY_REPORT);
+
+                console.log('[energy-summary] raw dify answer:', fullAnswer);
+
+                return res.json({
+                    answer: fullAnswer,
+                    conversation_id: conversationId
+                });
+            } catch (err) {
+                lastError = err;
+
+                // Only retry on connection reset (server closed connection while waiting)
+                if (err?.code === 'ECONNRESET' && attempt < MAX_RETRIES) {
+                    const backoffMs = 1000 * (attempt + 1); // 1s, 2s
+                    console.warn(`[energy-summary] Connection reset, retrying in ${backoffMs}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                    await new Promise(r => setTimeout(r, backoffMs));
+                    continue;
+                }
+
+                // Don't retry other errors or if max retries reached
+                throw err;
+            }
+        }
+
+        throw lastError;
     } catch (error) {
         console.error('[energy-summary] error:', error);
         res.status(500).json({ error: error.message || 'Energy summary failed' });
