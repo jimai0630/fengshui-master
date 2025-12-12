@@ -16,28 +16,28 @@ const FengShuiLoading = () => {
     useEffect(() => {
         const interval = setInterval(() => {
             setMessageIndex((prev) => (prev + 1) % messages.length);
-        }, 3000); // Change message every 3 seconds
+        }, 6000); // Change message every 6 seconds
 
         return () => clearInterval(interval);
     }, []);
 
-    // 9-Star Positions (Lo Shu Grid style)
+    // 9-Star Positions (Lo Shu Grid style) - Scaled Up
     const stars = [
-        { id: 1, color: "text-blue-500", bg: "bg-blue-100", x: 0, y: 60 },      // 1 (Water) - North (Bottom)
-        { id: 2, color: "text-gray-800", bg: "bg-gray-200", x: 60, y: -60 },    // 2 (Earth) - SW (Top-Right)
-        { id: 3, color: "text-emerald-500", bg: "bg-emerald-100", x: -60, y: 0 }, // 3 (Wood) - East (Left)
-        { id: 4, color: "text-emerald-600", bg: "bg-emerald-200", x: -60, y: -60 },// 4 (Wood) - SE (Top-Left)
+        { id: 1, color: "text-blue-500", bg: "bg-blue-100", x: 0, y: 100 },      // 1 (Water) - North (Bottom)
+        { id: 2, color: "text-gray-800", bg: "bg-gray-200", x: 100, y: -100 },    // 2 (Earth) - SW (Top-Right)
+        { id: 3, color: "text-emerald-500", bg: "bg-emerald-100", x: -100, y: 0 }, // 3 (Wood) - East (Left)
+        { id: 4, color: "text-emerald-600", bg: "bg-emerald-200", x: -100, y: -100 },// 4 (Wood) - SE (Top-Left)
         { id: 5, color: "text-amber-500", bg: "bg-amber-100", x: 0, y: 0, main: true }, // 5 (Earth) - Center
-        { id: 6, color: "text-gray-600", bg: "bg-gray-200", x: 60, y: 60 },     // 6 (Metal) - NW (Bottom-Right)
-        { id: 7, color: "text-rose-500", bg: "bg-rose-100", x: 60, y: 0 },      // 7 (Metal) - West (Right)
-        { id: 8, color: "text-amber-100", bg: "bg-amber-50", x: -60, y: 60 },   // 8 (Earth) - NE (Bottom-Left)
-        { id: 9, color: "text-purple-500", bg: "bg-purple-100", x: 0, y: -60 },   // 9 (Fire) - South (Top)
+        { id: 6, color: "text-gray-600", bg: "bg-gray-200", x: 100, y: 100 },     // 6 (Metal) - NW (Bottom-Right)
+        { id: 7, color: "text-rose-500", bg: "bg-rose-100", x: 100, y: 0 },      // 7 (Metal) - West (Right)
+        { id: 8, color: "text-amber-100", bg: "bg-amber-50", x: -100, y: 100 },   // 8 (Earth) - NE (Bottom-Left)
+        { id: 9, color: "text-purple-500", bg: "bg-purple-100", x: 0, y: -100 },   // 9 (Fire) - South (Top)
     ];
 
     return (
         <div className="flex flex-col items-center justify-center py-20 px-4 w-full h-full min-h-[400px]">
             {/* Animation Container */}
-            <div className="relative w-64 h-64 mb-12 flex items-center justify-center">
+            <div className="relative w-96 h-96 mb-16 flex items-center justify-center">
 
                 {/* 1. Background Glow/Aura */}
                 <motion.div
@@ -72,7 +72,7 @@ const FengShuiLoading = () => {
                 {/* 3. Energy Flow Lines (Connecting Stars) */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
                     <motion.path
-                        d="M 32 32 L 128 128 L 224 224"
+                        d="M 48 48 L 192 192 L 336 336"
                         stroke="url(#grad1)"
                         strokeWidth="1"
                         fill="none"

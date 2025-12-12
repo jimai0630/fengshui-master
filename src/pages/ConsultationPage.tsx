@@ -372,116 +372,142 @@ const ConsultationPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Progress Indicator */}
-            <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    {/* Back Button */}
-                    {['floor-plan-upload', 'energy-result', 'payment'].includes(currentStep) && (
-                        <button
-                            onClick={handleBack}
-                            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-3"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                            <span className="text-sm font-medium">{t('consultation.back')}</span>
-                        </button>
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900">
+            {/* Starfield Background */}
+            <div className="absolute inset-0 opacity-60">
+                <div className="absolute top-[10%] left-[15%] w-1 h-1 bg-white rounded-full animate-pulse"></div>
+                <div className="absolute top-[20%] left-[80%] w-1 h-1 bg-blue-200 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                <div className="absolute top-[30%] left-[45%] w-0.5 h-0.5 bg-purple-200 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute top-[40%] left-[70%] w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+                <div className="absolute top-[50%] left-[25%] w-0.5 h-0.5 bg-blue-100 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+                <div className="absolute top-[60%] left-[85%] w-1 h-1 bg-purple-100 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+                <div className="absolute top-[70%] left-[40%] w-0.5 h-0.5 bg-white rounded-full animate-pulse" style={{ animationDelay: '1.2s' }}></div>
+                <div className="absolute top-[80%] left-[60%] w-1 h-1 bg-blue-200 rounded-full animate-pulse" style={{ animationDelay: '1.8s' }}></div>
+                <div className="absolute top-[15%] left-[90%] w-0.5 h-0.5 bg-purple-200 rounded-full animate-pulse" style={{ animationDelay: '0.8s' }}></div>
+                <div className="absolute top-[85%] left-[10%] w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: '2.5s' }}></div>
+                <div className="absolute top-[25%] left-[55%] w-0.5 h-0.5 bg-blue-100 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="absolute top-[45%] left-[5%] w-1 h-1 bg-purple-100 rounded-full animate-pulse" style={{ animationDelay: '1.7s' }}></div>
+                <div className="absolute top-[65%] left-[95%] w-0.5 h-0.5 bg-white rounded-full animate-pulse" style={{ animationDelay: '2.2s' }}></div>
+                <div className="absolute top-[75%] left-[30%] w-1 h-1 bg-blue-200 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+                <div className="absolute top-[35%] left-[75%] w-0.5 h-0.5 bg-purple-200 rounded-full animate-pulse" style={{ animationDelay: '1.4s' }}></div>
+            </div>
+
+            {/* Nebula Glow Effects */}
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse"></div>
+            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
+
+            {/* Content Wrapper */}
+            <div className="relative z-10">
+                {/* Progress Indicator */}
+                <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                        {/* Back Button */}
+                        {['floor-plan-upload', 'energy-result', 'payment'].includes(currentStep) && (
+                            <button
+                                onClick={handleBack}
+                                className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-3"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span className="text-sm font-medium">{t('consultation.back')}</span>
+                            </button>
+                        )}
+
+                        {/* Progress Bar */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs sm:text-sm font-medium">
+                                <span className={`${['floor-plan-upload', 'processing'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    {t('consultation.steps.analysis')}
+                                </span>
+                                <span className={`${['energy-result', 'payment'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : currentStep === 'report' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    {t('consultation.steps.report')}
+                                </span>
+                            </div>
+                            <div className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500 ease-out"
+                                    style={{ width: getProgressWidth() }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Error Display (Only for global/critical errors, specific processing errors handled in ProcessingSection) */}
+                {error && currentStep !== 'processing' && (
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                                <button
+                                    onClick={handleRetry}
+                                    className="mt-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                >
+                                    {t('consultation.retry')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Content */}
+                <div className="pb-20">
+                    {/* Step 1: Floor Plan Upload */}
+                    {currentStep === 'floor-plan-upload' && (
+                        <FloorPlanUploadSection
+                            initialUserData={initialUserData}
+                            onComplete={handleFloorPlanUploadComplete}
+                            onAnalyzing={() => { }} // No longer used, handled by new flow
+                        />
                     )}
 
-                    {/* Progress Bar */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs sm:text-sm font-medium">
-                            <span className={`${['floor-plan-upload', 'processing'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                {t('consultation.steps.analysis')}
-                            </span>
-                            <span className={`${['energy-result', 'payment'].includes(currentStep) ? 'text-amber-600 dark:text-amber-400' : currentStep === 'report' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                {t('consultation.steps.report')}
-                            </span>
-                        </div>
-                        <div className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500 ease-out"
-                                style={{ width: getProgressWidth() }}
+                    {currentStep === 'processing' && (
+                        <ProcessingSection
+                            currentStage={processingStage}
+                            error={error}
+                            onRetry={handleRetryEnergy}
+                        />
+                    )}
+
+                    {/* Step 3: Energy Result */}
+                    {currentStep === 'energy-result' && energySummaryResult && (
+                        <div>
+                            <EnergyForecastSection
+                                energyData={energySummaryResult}
+                                onGenerateReport={handleProceedToPayment}
                             />
                         </div>
-                    </div>
-                </div>
-            </div>
+                    )}
 
-            {/* Error Display (Only for global/critical errors, specific processing errors handled in ProcessingSection) */}
-            {error && currentStep !== 'processing' && (
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-                            <button
-                                onClick={handleRetry}
-                                className="mt-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                            >
-                                {t('consultation.retry')}
-                            </button>
+                    {/* Step 4: Payment */}
+                    {currentStep === 'payment' && (
+                        <PaymentSection
+                            reportPrice={REPORT_PRICE}
+                            onPaymentSuccess={handlePaymentSuccess}
+                        />
+                    )}
+
+                    {/* Step 5: Report */}
+                    {currentStep === 'report' && fullReportResult && (
+                        <ReportSection
+                            report={fullReportResult}
+                            userEmail={userData.email!}
+                        />
+                    )}
+                </div>
+
+                {/* Loading Overlay */}
+                {isLoading && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-2xl">
+                            <Loader2 className="w-12 h-12 mx-auto text-amber-600 animate-spin mb-4" />
+                            <p className="text-gray-800 dark:text-white font-medium">
+                                {t('consultation.processing')}
+                            </p>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Main Content */}
-            <div className="pb-20">
-                {/* Step 1: Floor Plan Upload */}
-                {currentStep === 'floor-plan-upload' && (
-                    <FloorPlanUploadSection
-                        initialUserData={initialUserData}
-                        onComplete={handleFloorPlanUploadComplete}
-                        onAnalyzing={() => { }} // No longer used, handled by new flow
-                    />
-                )}
-
-                {currentStep === 'processing' && (
-                    <ProcessingSection
-                        currentStage={processingStage}
-                        error={error}
-                        onRetry={handleRetryEnergy}
-                    />
-                )}
-
-                {/* Step 3: Energy Result */}
-                {currentStep === 'energy-result' && energySummaryResult && (
-                    <div>
-                        <EnergyForecastSection
-                            energyData={energySummaryResult}
-                            onGenerateReport={handleProceedToPayment}
-                        />
-                    </div>
-                )}
-
-                {/* Step 4: Payment */}
-                {currentStep === 'payment' && (
-                    <PaymentSection
-                        reportPrice={REPORT_PRICE}
-                        onPaymentSuccess={handlePaymentSuccess}
-                    />
-                )}
-
-                {/* Step 5: Report */}
-                {currentStep === 'report' && fullReportResult && (
-                    <ReportSection
-                        report={fullReportResult}
-                        userEmail={userData.email!}
-                    />
                 )}
             </div>
-
-            {/* Loading Overlay */}
-            {isLoading && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-2xl">
-                        <Loader2 className="w-12 h-12 mx-auto text-amber-600 animate-spin mb-4" />
-                        <p className="text-gray-800 dark:text-white font-medium">
-                            {t('consultation.processing')}
-                        </p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

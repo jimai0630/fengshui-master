@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Lunar } from 'lunar-javascript';
-import { X, ChevronDown } from 'lucide-react';
+import { X } from 'lucide-react';
 import { zodiacFortunes } from '../data/zodiacFortunes';
 import type { ZodiacFortune } from '../data/zodiacFortunes';
 
