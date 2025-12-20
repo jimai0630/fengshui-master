@@ -16,6 +16,8 @@ import {
     loadConsultationState,
     updateConsultationState
 } from '../services/consultationStateService';
+import { confirmPayment } from '../services/stripeService';
+import { savePaymentRecord, generateFloorPlansHash } from '../services/supabaseService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
 
 // Types
@@ -31,6 +33,130 @@ import type {
 } from '../types/dify';
 
 const REPORT_PRICE = 29; // Fixed price for report
+
+/**
+ * 安全地解码 base64 PDF 字符串
+ * 处理各种边界情况：data URL 前缀、空白字符、格式验证
+ */
+const decodeBase64PDF = (base64String: string): Blob => {
+    try {
+        if (!base64String || typeof base64String !== 'string') {
+            throw new Error('Invalid input: base64String must be a non-empty string');
+        }
+
+        // 移除可能的 data URL 前缀
+        let cleanBase64 = base64String.replace(/^data:application\/pdf;base64,/, '');
+        
+        // 移除所有空白字符（空格、换行符、制表符等）
+        cleanBase64 = cleanBase64.replace(/\s/g, '');
+        
+        // 检查并移除无效字符（在验证之前）
+        // 注意：逗号(44)可能是 JSON 序列化问题，需要特别处理
+        const invalidChars = cleanBase64.match(/[^A-Za-z0-9+/=]/);
+        if (invalidChars) {
+            console.warn('Found invalid characters in base64, attempting to clean...');
+            const uniqueInvalidChars = Array.from(new Set(invalidChars));
+            console.warn('Invalid characters:', uniqueInvalidChars.map(c => `'${c}' (${c.charCodeAt(0)})`).join(', '));
+            console.warn('First invalid char code:', invalidChars[0].charCodeAt(0));
+            
+            // 记录清理前的位置，以便调试
+            const beforeLength = cleanBase64.length;
+            const beforePreview = cleanBase64.substring(0, 100);
+            
+            // 移除所有无效字符（包括逗号、引号等）
+            cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+            
+            console.warn(`Removed ${beforeLength - cleanBase64.length} invalid characters`);
+            console.warn('Before cleaning preview:', beforePreview);
+            console.warn('After cleaning preview:', cleanBase64.substring(0, 100));
+            
+            // 如果清理后长度变化很大，可能有问题
+            if (beforeLength - cleanBase64.length > beforeLength * 0.1) {
+                console.error(`Warning: Removed more than 10% of characters (${beforeLength - cleanBase64.length}/${beforeLength})`);
+            }
+        }
+        
+        // 验证 base64 格式（只包含 A-Z, a-z, 0-9, +, /, =）
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
+            // 如果验证仍然失败，输出详细调试信息
+            console.error('Base64 validation failed after cleaning');
+            console.error('Clean base64 length:', cleanBase64.length);
+            console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
+            console.error('Clean base64 last 200 chars:', cleanBase64.substring(Math.max(0, cleanBase64.length - 200)));
+            
+            // 尝试显示字符码
+            const firstInvalid = cleanBase64.match(/[^A-Za-z0-9+/=]/);
+            if (firstInvalid) {
+                console.error('First invalid char after cleaning:', firstInvalid[0], 'code:', firstInvalid[0].charCodeAt(0));
+            }
+            
+            throw new Error('Invalid base64 format: contains invalid characters after cleaning');
+        }
+        
+        // 验证长度
+        if (cleanBase64.length === 0) {
+            throw new Error('Empty base64 string after cleaning');
+        }
+        
+        // 检查长度是否为 4 的倍数（base64 要求）
+        if (cleanBase64.length % 4 !== 0) {
+            console.warn(`Base64 length (${cleanBase64.length}) is not a multiple of 4, attempting to pad...`);
+            // 尝试添加填充
+            const padding = 4 - (cleanBase64.length % 4);
+            cleanBase64 += '='.repeat(padding);
+            console.warn(`Added ${padding} padding characters`);
+        }
+        
+        // 解码 base64
+        let byteCharacters: string;
+        try {
+            byteCharacters = atob(cleanBase64);
+        } catch (atobError) {
+            console.error('atob failed:', atobError);
+            console.error('Clean base64 length:', cleanBase64.length);
+            console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
+            throw atobError;
+        }
+        
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        
+        // 验证 PDF 文件头（PDF 文件应该以 %PDF 开头）
+        const pdfHeader = new Uint8Array(byteArray.slice(0, 4));
+        const pdfHeaderString = String.fromCharCode(...pdfHeader);
+        if (pdfHeaderString !== '%PDF') {
+            console.error('Invalid PDF file header:', pdfHeaderString);
+            console.error('Expected: %PDF');
+            console.error('First 100 bytes:', Array.from(byteArray.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            throw new Error('Invalid PDF file: file header does not match PDF format');
+        }
+        
+        console.log('PDF file validated successfully, size:', byteArray.length, 'bytes');
+        
+        return new Blob([byteArray], { type: 'application/pdf' });
+    } catch (error) {
+        console.error('Failed to decode base64 PDF:', error);
+        console.error('Original base64 string length:', base64String?.length);
+        console.error('Original base64 string type:', typeof base64String);
+        console.error('Original base64 string preview (first 200):', base64String?.substring(0, 200));
+        console.error('Original base64 string preview (last 200):', base64String?.substring(Math.max(0, (base64String?.length || 0) - 200)));
+        
+        // 显示字符码以帮助调试
+        if (base64String && base64String.length > 0) {
+            const first50Chars = base64String.substring(0, 50);
+            const charCodes = first50Chars.split('').map((c, i) => {
+                const code = c.charCodeAt(0);
+                return `${i}: '${c}' (${code})`;
+            }).join(', ');
+            console.error('First 50 chars with codes:', charCodes);
+        }
+        
+        throw new Error(`PDF 解码失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+};
 
 const ConsultationPage: React.FC = () => {
     const { t, i18n } = useTranslation();
@@ -80,6 +206,31 @@ const ConsultationPage: React.FC = () => {
             if (userData.email) {
                 const savedState = await loadConsultationState(userData.email);
                 if (savedState) {
+                    // Don't auto-load saved state if user is starting a fresh analysis
+                    // Check if we have initial user data which indicates a fresh start from homepage
+                    const isFreshStart = initialUserData && Object.keys(initialUserData).length > 0;
+                    
+                    // If user is starting fresh, don't restore old state
+                    if (isFreshStart) {
+                        console.log('Fresh start detected, skipping state restoration');
+                        return;
+                    }
+                    
+                    // Only restore state if we're not explicitly on floor-plan-upload (which means user is starting fresh)
+                    // Or if it's a page refresh and we should restore progress
+                    if (currentStep === 'floor-plan-upload' && !isFreshStart) {
+                        // This might be a page refresh, but we should still check if user wants to continue
+                        // For now, don't auto-restore if on initial step
+                        console.log('On initial step, not restoring state to allow fresh start');
+                        return;
+                    }
+                    
+                    // Validate savedState has required fields before using
+                    if (!savedState.currentStep || !savedState.userData || !savedState.floorPlans || !savedState.houseType) {
+                        console.warn('Invalid saved state, skipping restoration');
+                        return;
+                    }
+                    
                     // Return 'processing' state to 'floor-plan-upload' if getting stuck
                     // Or resume intelligently based on existing results
                     let step = savedState.currentStep;
@@ -88,9 +239,16 @@ const ConsultationPage: React.FC = () => {
                         step = 'processing';
                     }
 
+                    // Only restore to report if there's actually a report and payment was completed
+                    // Otherwise, start from the beginning
+                    if (step === 'report' && (!savedState.fullReportResult || !savedState.paymentCompleted)) {
+                        console.log('Report step detected but no report data, resetting to floor-plan-upload');
+                        step = 'floor-plan-upload';
+                    }
+
                     setCurrentStep(step);
-                    setUserData(savedState.userData);
-                    setFloorPlans(savedState.floorPlans);
+                    setUserData(savedState.userData || {});
+                    setFloorPlans(Array.isArray(savedState.floorPlans) ? savedState.floorPlans : []);
                     setLayoutGridResult(savedState.layoutGridResult || null);
                     setEnergySummaryResult(savedState.energySummaryResult || null);
                     setFullReportResult(savedState.fullReportResult || null);
@@ -112,7 +270,7 @@ const ConsultationPage: React.FC = () => {
         };
 
         loadSavedState();
-    }, [userData.email, location.state]);
+    }, [userData.email, location.state, currentStep, initialUserData]);
 
     // Save state whenever it changes
     useEffect(() => {
@@ -209,10 +367,13 @@ const ConsultationPage: React.FC = () => {
         selectedHouseType: HouseType,
         newUserData: Partial<UserCompleteData>
     ) => {
-        // 1. Setup State
+        // 1. Setup State - Reset any previous report state when starting new analysis
         setUserData(prev => ({ ...prev, ...newUserData }));
         setFloorPlans(uploads);
         setHouseType(selectedHouseType);
+        setFullReportResult(null); // Clear any previous report
+        setEnergySummaryResult(null); // Clear previous energy result
+        setLayoutGridResult(null); // Clear previous layout result
 
         setCurrentStep('processing');
         setProcessingStage('analyzing_layout');
@@ -303,11 +464,46 @@ const ConsultationPage: React.FC = () => {
     };
 
     // Handler: Payment success
-    const handlePaymentSuccess = async () => {
+    const handlePaymentSuccess = async (paymentIntentId: string) => {
         setError(null);
 
         try {
             setIsLoading(true);
+
+            // Confirm payment on backend
+            let paymentRecord = null;
+            try {
+                const paymentResponse = await confirmPayment({
+                    paymentIntentId,
+                    consultationId: undefined, // We'll link it after getting consultation ID
+                });
+
+                // Save payment record to database
+                if (paymentResponse.paymentIntent) {
+                    const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+                    const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
+
+                    // Try to get consultation ID from Supabase
+                    // For now, we'll save payment without consultation_id and link it later
+                    paymentRecord = await savePaymentRecord({
+                        payment_intent_id: paymentIntentId,
+                        amount: paymentResponse.paymentIntent.amount,
+                        currency: paymentResponse.paymentIntent.currency,
+                        status: paymentResponse.paymentIntent.status as any,
+                        metadata: {
+                            email: userData.email || '',
+                            floor_plans_hash: floorPlansHash,
+                        },
+                    });
+
+                    console.log('[Payment] Payment record saved:', paymentRecord?.id);
+                }
+            } catch (paymentError) {
+                console.error('Failed to confirm/save payment:', paymentError);
+                // Continue with report generation even if payment confirmation fails
+                // The webhook will handle it asynchronously
+            }
+
             // Call Agent2 (Full Report)
             const { result } = await callFullReport(
                 userData as UserCompleteData,
@@ -317,6 +513,45 @@ const ConsultationPage: React.FC = () => {
 
             setFullReportResult(result);
             setCurrentStep('report');
+
+            // Auto-download PDF if available
+            if (result.pdf_base64) {
+                console.log('[Payment] PDF base64 received, length:', result.pdf_base64.length);
+                console.log('[Payment] PDF base64 preview (first 100 chars):', result.pdf_base64.substring(0, 100));
+                
+                try {
+                    // Trigger download after a short delay to ensure UI is updated
+                    setTimeout(() => {
+                        try {
+                            const blob = decodeBase64PDF(result.pdf_base64!);
+                            
+                            console.log('[Payment] PDF blob created successfully, size:', blob.size, 'bytes');
+                            
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `FengShui_Report_${userData.email || 'user'}_${new Date().toISOString().split('T')[0]}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            
+                            console.log('[Payment] PDF download triggered successfully');
+                        } catch (pdfError) {
+                            console.error('Auto-download PDF failed:', pdfError);
+                            console.error('PDF base64 length:', result.pdf_base64?.length);
+                            console.error('PDF base64 type:', typeof result.pdf_base64);
+                            // 显示用户友好的错误提示
+                            alert('PDF 下载失败，请稍后重试或联系客服');
+                        }
+                    }, 1000);
+                } catch (pdfError) {
+                    console.error('Auto-download PDF failed:', pdfError);
+                    // Don't block the flow if download fails
+                }
+            } else {
+                console.warn('[Payment] No PDF base64 in result');
+            }
         } catch (err) {
             console.error('Report generation error:', err);
             setError(t('consultation.errors.reportGenerationError'));

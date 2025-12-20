@@ -80,3 +80,73 @@ COMMENT ON COLUMN consultations.floor_plans_hash IS 'Hash of floor plan file IDs
 COMMENT ON COLUMN consultations.layout_grid_result IS 'Agent 1 output: 9-grid layout analysis';
 COMMENT ON COLUMN consultations.energy_summary_result IS 'Agent 2 output: 5-dimension energy scores';
 COMMENT ON COLUMN consultations.full_report_result IS 'Complete report after payment';
+
+-- Create payments table for Stripe payment records
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Foreign key to consultations
+    consultation_id UUID REFERENCES consultations(id) ON DELETE SET NULL,
+    
+    -- Stripe payment information
+    payment_intent_id TEXT NOT NULL UNIQUE,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'usd',
+    status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'refunded', 'canceled')),
+    
+    -- Optional Stripe customer information
+    stripe_customer_id TEXT,
+    
+    -- Additional metadata
+    metadata JSONB DEFAULT '{}'::jsonb,
+    
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes for payments table
+CREATE INDEX IF NOT EXISTS idx_payments_consultation_id ON payments(consultation_id);
+CREATE INDEX IF NOT EXISTS idx_payments_payment_intent_id ON payments(payment_intent_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC);
+
+-- Add payment_id column to consultations table
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS payment_id UUID REFERENCES payments(id) ON DELETE SET NULL;
+
+-- Create index for payment_id in consultations
+CREATE INDEX IF NOT EXISTS idx_consultations_payment_id ON consultations(payment_id);
+
+-- Enable Row Level Security for payments
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can read payments (for now, allow all reads)
+CREATE POLICY "Users can read payments"
+ON payments
+FOR SELECT
+USING (true);
+
+-- Policy: System can insert payments
+CREATE POLICY "System can insert payments"
+ON payments
+FOR INSERT
+WITH CHECK (true);
+
+-- Policy: System can update payments
+CREATE POLICY "System can update payments"
+ON payments
+FOR UPDATE
+USING (true);
+
+-- Trigger to automatically update updated_at timestamp for payments
+CREATE TRIGGER update_payments_updated_at
+BEFORE UPDATE ON payments
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments for payments table
+COMMENT ON TABLE payments IS 'Stores Stripe payment records for consultations';
+COMMENT ON COLUMN payments.payment_intent_id IS 'Stripe PaymentIntent ID (unique identifier)';
+COMMENT ON COLUMN payments.consultation_id IS 'Foreign key to consultations table';
+COMMENT ON COLUMN payments.status IS 'Payment status: pending, succeeded, failed, refunded, canceled';

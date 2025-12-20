@@ -55,10 +55,61 @@ export async function loadConsultationState(
     try {
         const raw = localStorage.getItem(STORAGE_KEY_PREFIX + email);
         if (!raw) return null;
+        
+        const parsed = JSON.parse(raw);
+        
+        // Validate the parsed data has required fields
+        if (!parsed || typeof parsed !== 'object') {
+            console.warn('[localStorage] Invalid state data, clearing...');
+            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
+            return null;
+        }
+        
+        // Ensure required fields exist
+        if (!parsed.currentStep || !parsed.userData || !parsed.floorPlans || !parsed.houseType) {
+            console.warn('[localStorage] Incomplete state data, clearing...');
+            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
+            return null;
+        }
+        
+        // Ensure currentStep is a valid ConsultationStep
+        const validSteps: ConsultationStep[] = [
+            'user-info',
+            'floor-plan-upload',
+            'floor-plan-analyzing',
+            'processing',
+            'floor-plan-result',
+            'energy-assessment',
+            'energy-result',
+            'payment',
+            'report'
+        ];
+        
+        if (!validSteps.includes(parsed.currentStep)) {
+            console.warn('[localStorage] Invalid currentStep, resetting to floor-plan-upload');
+            parsed.currentStep = 'floor-plan-upload';
+        }
+        
+        // Ensure arrays are actually arrays
+        if (!Array.isArray(parsed.floorPlans)) {
+            parsed.floorPlans = [];
+        }
+        
+        // Ensure userData is an object
+        if (!parsed.userData || typeof parsed.userData !== 'object') {
+            parsed.userData = {};
+        }
+        
         console.log('[localStorage] Loaded consultation state');
-        return JSON.parse(raw) as ConsultationState;
+        return parsed as ConsultationState;
     } catch (e) {
         console.error('Failed to load consultation state', e);
+        // Clear corrupted data
+        try {
+            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
+        } catch (clearError) {
+            console.error('Failed to clear corrupted localStorage data', clearError);
+        }
         return null;
     }
 }
