@@ -197,80 +197,102 @@ const ConsultationPage: React.FC = () => {
 
             if (shouldReset) {
                 console.log('Resetting consultation state due to fresh navigation');
-                // Clear any existing state logic if needed, or just don't load.
-                // But we might want to clear the actual localStorage too so a refresh doesn't bring it back?
-                // For now, simply not loading the old state is enough for this session.
+                // Don't load saved state when user explicitly wants to start fresh
                 return;
             }
 
-            if (userData.email) {
-                const savedState = await loadConsultationState(userData.email);
-                if (savedState) {
-                    // Don't auto-load saved state if user is starting a fresh analysis
-                    // Check if we have initial user data which indicates a fresh start from homepage
-                    const isFreshStart = initialUserData && Object.keys(initialUserData).length > 0;
-                    
-                    // If user is starting fresh, don't restore old state
-                    if (isFreshStart) {
-                        console.log('Fresh start detected, skipping state restoration');
-                        return;
-                    }
-                    
-                    // Only restore state if we're not explicitly on floor-plan-upload (which means user is starting fresh)
-                    // Or if it's a page refresh and we should restore progress
-                    if (currentStep === 'floor-plan-upload' && !isFreshStart) {
-                        // This might be a page refresh, but we should still check if user wants to continue
-                        // For now, don't auto-restore if on initial step
-                        console.log('On initial step, not restoring state to allow fresh start');
-                        return;
-                    }
-                    
-                    // Validate savedState has required fields before using
-                    if (!savedState.currentStep || !savedState.userData || !savedState.floorPlans || !savedState.houseType) {
-                        console.warn('Invalid saved state, skipping restoration');
-                        return;
-                    }
-                    
-                    // Return 'processing' state to 'floor-plan-upload' if getting stuck
-                    // Or resume intelligently based on existing results
-                    let step = savedState.currentStep;
-                    if (step === 'floor-plan-analyzing' || step === 'energy-assessment') {
-                        // Legacy steps mapping
-                        step = 'processing';
-                    }
+            if (userData.email && userData.birthDate && userData.gender && houseType && floorPlans.length > 0) {
+                // Only load state if we have all required parameters
+                const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+                
+                if (floorPlanFileIds.length > 0) {
+                    try {
+                        const savedState = await loadConsultationState(
+                            userData.email,
+                            userData.birthDate,
+                            userData.gender,
+                            houseType,
+                            floorPlanFileIds
+                        );
+                        
+                        if (savedState) {
+                            // Don't auto-load saved state if user is starting a fresh analysis
+                            // Check if we have initial user data which indicates a fresh start from homepage
+                            const isFreshStart = initialUserData && Object.keys(initialUserData).length > 0;
+                            
+                            // If user is starting fresh, don't restore old state
+                            if (isFreshStart) {
+                                console.log('Fresh start detected, skipping state restoration');
+                                return;
+                            }
+                            
+                            // Only restore state if we're not explicitly on floor-plan-upload (which means user is starting fresh)
+                            // Or if it's a page refresh and we should restore progress
+                            if (currentStep === 'floor-plan-upload' && !isFreshStart) {
+                                // This might be a page refresh, but we should still check if user wants to continue
+                                // For now, don't auto-restore if on initial step
+                                console.log('On initial step, not restoring state to allow fresh start');
+                                return;
+                            }
+                            
+                            // Validate savedState has required fields before using
+                            if (!savedState.currentStep || !savedState.userData || !savedState.floorPlans || !savedState.houseType) {
+                                console.warn('Invalid saved state, skipping restoration');
+                                return;
+                            }
+                            
+                            // Return 'processing' state to 'floor-plan-upload' if getting stuck
+                            // Or resume intelligently based on existing results
+                            let step = savedState.currentStep;
+                            if (step === 'floor-plan-analyzing' || step === 'energy-assessment') {
+                                // Legacy steps mapping
+                                step = 'processing';
+                            }
 
-                    // Only restore to report if there's actually a report and payment was completed
-                    // Otherwise, start from the beginning
-                    if (step === 'report' && (!savedState.fullReportResult || !savedState.paymentCompleted)) {
-                        console.log('Report step detected but no report data, resetting to floor-plan-upload');
-                        step = 'floor-plan-upload';
-                    }
+                            // Only restore to report if there's actually a report and payment was completed
+                            // Otherwise, start from the beginning
+                            if (step === 'report' && (!savedState.fullReportResult || !savedState.paymentCompleted)) {
+                                console.log('Report step detected but no report data, resetting to floor-plan-upload');
+                                step = 'floor-plan-upload';
+                            }
 
-                    setCurrentStep(step);
-                    setUserData(savedState.userData || {});
-                    setFloorPlans(Array.isArray(savedState.floorPlans) ? savedState.floorPlans : []);
-                    setLayoutGridResult(savedState.layoutGridResult || null);
-                    setEnergySummaryResult(savedState.energySummaryResult || null);
-                    setFullReportResult(savedState.fullReportResult || null);
-                    setConversationId(savedState.conversationId || '');
-                    setHouseType(savedState.houseType);
+                            setCurrentStep(step);
+                            setUserData(savedState.userData || {});
+                            setFloorPlans(Array.isArray(savedState.floorPlans) ? savedState.floorPlans : []);
+                            setLayoutGridResult(savedState.layoutGridResult || null);
+                            setEnergySummaryResult(savedState.energySummaryResult || null);
+                            setFullReportResult(savedState.fullReportResult || null);
+                            setConversationId(savedState.conversationId || '');
+                            setHouseType(savedState.houseType);
 
-                    if (step === 'processing') {
-                        if (savedState.layoutGridResult) {
-                            setProcessingStage('analyzing_energy');
-                            // Ideally trigger energy analysis if not done, but for now user might need to retry manually if interrupted
-                            // Or we can auto-trigger in a useEffect. 
-                            // Simplified: restart layout analysis if no result, or energy if layout exists.
-                        } else {
-                            setProcessingStage('analyzing_layout');
+                            if (step === 'processing') {
+                                if (savedState.layoutGridResult) {
+                                    setProcessingStage('analyzing_energy');
+                                    // Ideally trigger energy analysis if not done, but for now user might need to retry manually if interrupted
+                                    // Or we can auto-trigger in a useEffect. 
+                                    // Simplified: restart layout analysis if no result, or energy if layout exists.
+                                } else {
+                                    setProcessingStage('analyzing_layout');
+                                }
+                            }
                         }
+                    } catch (error) {
+                    // Handle Supabase errors gracefully
+                    console.error('Failed to load consultation state from Supabase:', error);
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    
+                    // Only show error if it's a configuration issue, not if it's just "no data found"
+                    if (errorMessage.includes('not configured') || errorMessage.includes('Supabase')) {
+                        setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Please contact support.'));
                     }
+                    // For other errors (network issues, etc.), silently fail and let user start fresh
                 }
             }
-        };
+        }
+    };
 
         loadSavedState();
-    }, [userData.email, location.state, currentStep, initialUserData]);
+    }, [userData.email, userData.birthDate, userData.gender, houseType, floorPlans, location.state, currentStep, initialUserData, t]);
 
     // Save state whenever it changes
     useEffect(() => {
@@ -284,9 +306,19 @@ const ConsultationPage: React.FC = () => {
                 fullReportResult: fullReportResult || undefined,
                 conversationId,
                 paymentCompleted: currentStep === 'report'
+            }).catch((error) => {
+                // Handle Supabase save errors gracefully
+                console.error('Failed to save consultation state to Supabase:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                
+                // Only show error if it's a critical issue (configuration), not for temporary network issues
+                if (errorMessage.includes('not configured')) {
+                    setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Your progress may not be saved.'));
+                }
+                // For other errors, log but don't interrupt user flow
             });
         }
-    }, [currentStep, userData, floorPlans, layoutGridResult, energySummaryResult, fullReportResult, conversationId]);
+    }, [currentStep, userData, floorPlans, layoutGridResult, energySummaryResult, fullReportResult, conversationId, t]);
 
     // Check if user data is complete
     const hasRequiredUserData = userData.email && userData.birthDate && userData.gender;

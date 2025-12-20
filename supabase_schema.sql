@@ -74,9 +74,14 @@ BEFORE UPDATE ON consultations
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
+-- Add floor_plans_data column for complete floor plans metadata
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS floor_plans_data JSONB;
+
 -- Comments for documentation
 COMMENT ON TABLE consultations IS 'Stores feng shui consultation results and user progress';
 COMMENT ON COLUMN consultations.floor_plans_hash IS 'Hash of floor plan file IDs to detect changes';
+COMMENT ON COLUMN consultations.floor_plans_data IS 'Complete floor plans metadata including fileIds, previews, floorIndex, etc.';
 COMMENT ON COLUMN consultations.layout_grid_result IS 'Agent 1 output: 9-grid layout analysis';
 COMMENT ON COLUMN consultations.energy_summary_result IS 'Agent 2 output: 5-dimension energy scores';
 COMMENT ON COLUMN consultations.full_report_result IS 'Complete report after payment';

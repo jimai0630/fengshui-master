@@ -206,11 +206,33 @@ async function postStreamingToDify(path, body, apiKey) {
             }
         }
     } catch (err) {
+        // Handle "Premature close" and other stream errors
+        const errorMessage = err?.message || String(err);
+        const isPrematureClose = errorMessage.includes('Premature close') || 
+                                 errorMessage.includes('ECONNRESET') ||
+                                 errorMessage.includes('aborted');
+        
         // If we already have some answer, return partial rather than fail hard
         if (fullAnswer && fullAnswer.trim().length > 0) {
-            console.warn('[Dify Stream] Stream interrupted but partial answer captured. Returning partial.', err);
+            console.warn('[Dify Stream] Stream interrupted but partial answer captured. Returning partial.', {
+                error: errorMessage,
+                answerLength: fullAnswer.length,
+                isPrematureClose
+            });
             return { fullAnswer, conversationId, events: eventSnippets, firstErrorPayload, partial: true };
         }
+        
+        // If it's a premature close and we have no answer, provide more context
+        if (isPrematureClose) {
+            console.error('[Dify Stream] Premature close error:', {
+                error: errorMessage,
+                code: err?.code,
+                events: eventSnippets,
+                firstErrorPayload
+            });
+            throw new Error(`Dify stream connection closed prematurely. This may be due to network issues or Dify API timeout. ${firstErrorPayload ? `Error from Dify: ${JSON.stringify(firstErrorPayload)}` : ''}`);
+        }
+        
         throw err;
     }
 
@@ -603,6 +625,18 @@ app.post('/api/dify/layout-grid', async (req, res) => {
 
 /**
  * Energy summary endpoint
+ * Handle GET requests with friendly error message
+ */
+app.get('/api/dify/energy-summary', (req, res) => {
+    res.status(405).json({ 
+        error: 'Method not allowed. This endpoint only accepts POST requests.',
+        method: 'POST',
+        endpoint: '/api/dify/energy-summary'
+    });
+});
+
+/**
+ * Energy summary endpoint
  */
 app.post('/api/dify/energy-summary', async (req, res) => {
     try {
@@ -649,11 +683,15 @@ app.post('/api/dify/energy-summary', async (req, res) => {
                 });
             } catch (err) {
                 lastError = err;
+                const errorMessage = err?.message || String(err);
+                const isConnectionError = err?.code === 'ECONNRESET' || 
+                                         errorMessage.includes('Premature close') ||
+                                         errorMessage.includes('aborted');
 
-                // Only retry on connection reset (server closed connection while waiting)
-                if (err?.code === 'ECONNRESET' && attempt < MAX_RETRIES) {
+                // Retry on connection errors (connection reset or premature close)
+                if (isConnectionError && attempt < MAX_RETRIES) {
                     const backoffMs = 1000 * (attempt + 1); // 1s, 2s
-                    console.warn(`[energy-summary] Connection reset, retrying in ${backoffMs}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                    console.warn(`[energy-summary] Connection error (${errorMessage}), retrying in ${backoffMs}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
                     await new Promise(r => setTimeout(r, backoffMs));
                     continue;
                 }
@@ -668,6 +706,18 @@ app.post('/api/dify/energy-summary', async (req, res) => {
         console.error('[energy-summary] error:', error);
         res.status(500).json({ error: error.message || 'Energy summary failed' });
     }
+});
+
+/**
+ * Full report endpoint
+ * Handle GET requests with friendly error message
+ */
+app.get('/api/dify/full-report', (req, res) => {
+    res.status(405).json({ 
+        error: 'Method not allowed. This endpoint only accepts POST requests.',
+        method: 'POST',
+        endpoint: '/api/dify/full-report'
+    });
 });
 
 /**

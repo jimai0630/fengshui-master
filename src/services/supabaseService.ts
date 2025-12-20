@@ -8,7 +8,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
-    console.warn('[Supabase] Not configured. Using localStorage only. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud sync.');
+    console.error('[Supabase] Not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud sync.');
 }
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
@@ -23,6 +23,7 @@ export interface ConsultationRecord {
     gender: string;
     house_type: string;
     floor_plans_hash: string; // MD5 hash of floor plan file IDs
+    floor_plans_data?: any; // JSONB field for complete floorPlans array
 
     // Agent 1 Results
     layout_grid_result: any;
@@ -55,23 +56,78 @@ export function generateFloorPlansHash(fileIds: string[]): string {
  */
 export async function saveConsultationToSupabase(record: Omit<ConsultationRecord, 'id' | 'created_at' | 'updated_at'>) {
     if (!supabase) {
-        console.warn('[Supabase] Client not configured, skipping save');
-        return null;
+        throw new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
     }
 
     try {
-        const { data, error } = await supabase
+        // 首先尝试查找现有记录
+        const { data: existingData, error: selectError } = await supabase
             .from('consultations')
-            .upsert(record, {
-                onConflict: 'email,birth_date,gender,house_type,floor_plans_hash'
-            })
-            .select()
-            .single();
+            .select('id')
+            .eq('email', record.email)
+            .eq('birth_date', record.birth_date)
+            .eq('gender', record.gender)
+            .eq('house_type', record.house_type)
+            .eq('floor_plans_hash', record.floor_plans_hash)
+            .maybeSingle();
 
-        if (error) throw error;
-        return data;
+        if (selectError && selectError.code !== 'PGRST116') {
+            // PGRST116 = not found, which is OK
+            console.error('[Supabase] Error checking existing record:', selectError);
+            throw selectError;
+        }
+
+        let result;
+        if (existingData) {
+            // 更新现有记录
+            const { data, error } = await supabase
+                .from('consultations')
+                .update(record)
+                .eq('id', existingData.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Update error:', error);
+                console.error('[Supabase] Update record:', JSON.stringify(record, null, 2));
+                throw error;
+            }
+            result = data;
+            console.log('[Supabase] Updated existing consultation record:', existingData.id);
+        } else {
+            // 插入新记录
+            const { data, error } = await supabase
+                .from('consultations')
+                .insert(record)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Insert error:', error);
+                console.error('[Supabase] Insert record:', JSON.stringify(record, null, 2));
+                console.error('[Supabase] Error details:', {
+                    message: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint
+                });
+                throw error;
+            }
+            result = data;
+            console.log('[Supabase] Inserted new consultation record:', result.id);
+        }
+
+        return result;
     } catch (error) {
-        console.error('Failed to save consultation to Supabase:', error);
+        console.error('[Supabase] Failed to save consultation to Supabase:', error);
+        if (error instanceof Error) {
+            console.error('[Supabase] Error details:', {
+                message: error.message,
+                code: (error as any)?.code,
+                details: (error as any)?.details,
+                hint: (error as any)?.hint
+            });
+        }
         throw error;
     }
 }
@@ -87,8 +143,7 @@ export async function loadConsultationFromSupabase(
     floorPlansHash: string
 ): Promise<ConsultationRecord | null> {
     if (!supabase) {
-        console.warn('[Supabase] Client not configured, skipping load');
-        return null;
+        throw new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
     }
 
     try {

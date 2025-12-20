@@ -24,109 +24,44 @@ export interface ConsultationState {
     paymentCompleted?: boolean;
 }
 
-const STORAGE_KEY_PREFIX = 'consultation_state_';
-
 /**
- * Load consultation state (tries Supabase first, falls back to localStorage)
+ * Load consultation state from Supabase
+ * Requires all parameters to be provided
+ * Throws error if Supabase is not configured or if load fails
  */
 export async function loadConsultationState(
     email: string,
-    birthDate?: string,
-    gender?: string,
-    houseType?: string,
-    floorPlanFileIds?: string[]
+    birthDate: string,
+    gender: string,
+    houseType: string,
+    floorPlanFileIds: string[]
 ): Promise<ConsultationState | null> {
-    // Try Supabase if we have all required params
-    if (birthDate && gender && houseType && floorPlanFileIds && floorPlanFileIds.length > 0) {
-        try {
-            const hash = generateFloorPlansHash(floorPlanFileIds);
-            const record = await loadConsultationFromSupabase(email, birthDate, gender, houseType, hash);
-
-            if (record) {
-                console.log('[Supabase] Loaded consultation state from cloud');
-                return mapRecordToState(record);
-            }
-        } catch (error) {
-            console.warn('[Supabase] Failed to load, falling back to localStorage:', error);
-        }
+    if (!birthDate || !gender || !houseType || !floorPlanFileIds || floorPlanFileIds.length === 0) {
+        throw new Error('All parameters are required to load consultation state: birthDate, gender, houseType, and floorPlanFileIds');
     }
 
-    // Fallback to localStorage
     try {
-        const raw = localStorage.getItem(STORAGE_KEY_PREFIX + email);
-        if (!raw) return null;
-        
-        const parsed = JSON.parse(raw);
-        
-        // Validate the parsed data has required fields
-        if (!parsed || typeof parsed !== 'object') {
-            console.warn('[localStorage] Invalid state data, clearing...');
-            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
-            return null;
+        const hash = generateFloorPlansHash(floorPlanFileIds);
+        const record = await loadConsultationFromSupabase(email, birthDate, gender, houseType, hash);
+
+        if (record) {
+            console.log('[Supabase] Loaded consultation state from cloud');
+            return mapRecordToState(record);
         }
-        
-        // Ensure required fields exist
-        if (!parsed.currentStep || !parsed.userData || !parsed.floorPlans || !parsed.houseType) {
-            console.warn('[localStorage] Incomplete state data, clearing...');
-            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
-            return null;
-        }
-        
-        // Ensure currentStep is a valid ConsultationStep
-        const validSteps: ConsultationStep[] = [
-            'user-info',
-            'floor-plan-upload',
-            'floor-plan-analyzing',
-            'processing',
-            'floor-plan-result',
-            'energy-assessment',
-            'energy-result',
-            'payment',
-            'report'
-        ];
-        
-        if (!validSteps.includes(parsed.currentStep)) {
-            console.warn('[localStorage] Invalid currentStep, resetting to floor-plan-upload');
-            parsed.currentStep = 'floor-plan-upload';
-        }
-        
-        // Ensure arrays are actually arrays
-        if (!Array.isArray(parsed.floorPlans)) {
-            parsed.floorPlans = [];
-        }
-        
-        // Ensure userData is an object
-        if (!parsed.userData || typeof parsed.userData !== 'object') {
-            parsed.userData = {};
-        }
-        
-        console.log('[localStorage] Loaded consultation state');
-        return parsed as ConsultationState;
-    } catch (e) {
-        console.error('Failed to load consultation state', e);
-        // Clear corrupted data
-        try {
-            localStorage.removeItem(STORAGE_KEY_PREFIX + email);
-        } catch (clearError) {
-            console.error('Failed to clear corrupted localStorage data', clearError);
-        }
+
         return null;
+    } catch (error) {
+        console.error('[Supabase] Failed to load consultation state:', error);
+        throw error;
     }
 }
 
 /**
- * Update consultation state (saves to both Supabase and localStorage)
+ * Update consultation state (saves to Supabase only)
+ * Only saves when data is complete (as determined by shouldSyncToSupabase)
+ * Throws error if Supabase is not configured or if save fails
  */
 export async function updateConsultationState(email: string, state: Partial<ConsultationState>) {
-    // Always save to localStorage for immediate access
-    try {
-        const existing = await loadLocalState(email);
-        const newState = { ...existing, ...state };
-        localStorage.setItem(STORAGE_KEY_PREFIX + email, JSON.stringify(newState));
-    } catch (e) {
-        console.error('Failed to update localStorage', e);
-    }
-
     // Save to Supabase if we have complete data
     if (shouldSyncToSupabase(state)) {
         try {
@@ -134,7 +69,8 @@ export async function updateConsultationState(email: string, state: Partial<Cons
             await saveConsultationToSupabase(record);
             console.log('[Supabase] Saved consultation state to cloud');
         } catch (error) {
-            console.warn('[Supabase] Failed to save:', error);
+            console.error('[Supabase] Failed to save consultation state:', error);
+            throw error;
         }
     }
 }
@@ -159,16 +95,6 @@ export async function markPaymentCompleted(
 
 // Helper functions
 
-function loadLocalState(email: string): ConsultationState {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY_PREFIX + email);
-        if (!raw) return {} as ConsultationState;
-        return JSON.parse(raw) as ConsultationState;
-    } catch {
-        return {} as ConsultationState;
-    }
-}
-
 function shouldSyncToSupabase(state: Partial<ConsultationState>): boolean {
     return !!(
         state.userData?.email &&
@@ -191,6 +117,7 @@ function mapStateToRecord(state: Partial<ConsultationState>): Omit<ConsultationR
         gender: state.userData!.gender!,
         house_type: state.houseType!,
         floor_plans_hash: generateFloorPlansHash(fileIds),
+        floor_plans_data: state.floorPlans || [],
         layout_grid_result: state.layoutGridResult,
         layout_conversation_id: state.conversationId || '',
         energy_summary_result: state.energySummaryResult,
@@ -202,19 +129,29 @@ function mapStateToRecord(state: Partial<ConsultationState>): Omit<ConsultationR
 }
 
 function mapRecordToState(record: ConsultationRecord): ConsultationState {
+    // Determine current step based on available data
+    let currentStep: ConsultationStep = 'floor-plan-upload';
+    if (record.payment_completed && record.full_report_result) {
+        currentStep = 'report';
+    } else if (record.energy_summary_result) {
+        currentStep = 'energy-result';
+    } else if (record.layout_grid_result) {
+        currentStep = 'processing';
+    }
+
     return {
-        currentStep: record.payment_completed ? 'report' : 'energy-result',
+        currentStep,
         userData: {
             email: record.email,
             birthDate: record.birth_date,
             gender: record.gender as '男' | '女'
         },
-        floorPlans: [], // File IDs are in hash, not stored separately
+        floorPlans: record.floor_plans_data || [], // Restore from floor_plans_data, fallback to empty array
         houseType: record.house_type as HouseType,
         layoutGridResult: record.layout_grid_result,
         energySummaryResult: record.energy_summary_result,
         fullReportResult: record.full_report_result,
-        conversationId: record.energy_conversation_id,
+        conversationId: record.energy_conversation_id || record.layout_conversation_id,
         paymentCompleted: record.payment_completed
     };
 }

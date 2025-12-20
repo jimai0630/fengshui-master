@@ -151,8 +151,35 @@ export async function callEnergySummary(
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Energy summary failed: ${error}`);
+        const contentType = response.headers.get('content-type');
+        let errorMessage = `Energy summary failed with status ${response.status}`;
+        
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                // If JSON parsing fails, try text
+                const errorText = await response.text();
+                errorMessage = errorText || errorMessage;
+            }
+        } else {
+            // If response is HTML (like Cloudflare error page), backend might not be running
+            const errorText = await response.text();
+            if (errorText.includes('html') || errorText.includes('<!DOCTYPE')) {
+                errorMessage = `Backend server may not be running. Please ensure the backend server is running on port 4000. Status: ${response.status}`;
+            } else {
+                errorMessage = errorText || errorMessage;
+            }
+        }
+        
+        throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON response but got ${contentType}. Response: ${text.substring(0, 200)}`);
     }
 
     const resultData = await response.json();
@@ -230,8 +257,35 @@ export async function callFullReport(
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Full report failed: ${error}`);
+        const contentType = response.headers.get('content-type');
+        let errorMessage = `Full report failed with status ${response.status}`;
+        
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                // If JSON parsing fails, try text
+                const errorText = await response.text();
+                errorMessage = errorText || errorMessage;
+            }
+        } else {
+            // If response is HTML (like Cloudflare error page), backend might not be running
+            const errorText = await response.text();
+            if (errorText.includes('html') || errorText.includes('<!DOCTYPE')) {
+                errorMessage = `Backend server may not be running. Please ensure the backend server is running on port 4000. Status: ${response.status}`;
+            } else {
+                errorMessage = errorText || errorMessage;
+            }
+        }
+        
+        throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON response but got ${contentType}. Response: ${text.substring(0, 200)}`);
     }
 
     const resultData = await response.json();
