@@ -39,19 +39,6 @@ const ProcessingSection: React.FC<ProcessingSectionProps> = ({
                     message: t('consultation.success.message', 'Structure identified. Preparing energy analysis...'),
                     color: 'text-green-600'
                 };
-            case 'analyzing_energy':
-                // This case is now handled by the early return above, but kept for type safety/fallback
-                return {
-                    icon: (
-                        <div className="relative">
-                            <Sparkles className="w-16 h-16 text-purple-600 animate-pulse" />
-                            <div className="absolute inset-0 bg-purple-400 rounded-full opacity-20 animate-ping"></div>
-                        </div>
-                    ),
-                    title: t('consultation.analyzing.energyTitle', 'Analyzing Home Energy...'),
-                    message: t('consultation.analyzing.energyMessage', 'Calculating energy flows based on the 9-Palace grid...'),
-                    color: 'text-purple-600'
-                };
             case 'error_energy':
                 return {
                     icon: <AlertCircle className="w-16 h-16 text-red-500" />,

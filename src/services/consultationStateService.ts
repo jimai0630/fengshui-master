@@ -61,7 +61,7 @@ export async function loadConsultationState(
  * Only saves when data is complete (as determined by shouldSyncToSupabase)
  * Throws error if Supabase is not configured or if save fails
  */
-export async function updateConsultationState(email: string, state: Partial<ConsultationState>) {
+export async function updateConsultationState(_email: string, state: Partial<ConsultationState>) {
     // Save to Supabase if we have complete data
     if (shouldSyncToSupabase(state)) {
         try {
