@@ -37,6 +37,15 @@ const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, {
     apiVersion: '2024-12-18.acacia',
 }) : null;
 
+// 添加调试日志
+console.log('[DEBUG] Environment check:', {
+    hasStripeKey: !!STRIPE_SECRET_KEY,
+    hasWebhookSecret: !!STRIPE_WEBHOOK_SECRET,
+    hasProductId: !!STRIPE_PRODUCT_ID,
+    stripeKeyLength: STRIPE_SECRET_KEY?.length || 0,
+    allEnvKeys: Object.keys(process.env).filter(key => key.includes('STRIPE'))
+});
+
 if (!stripe) {
     console.warn('[WARN] STRIPE_SECRET_KEY is not set. Payment endpoints will not work.');
 }
