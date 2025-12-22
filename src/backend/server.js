@@ -8,10 +8,34 @@ import dotenv from 'dotenv';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import Stripe from 'stripe';
-import puppeteer from 'puppeteer';
 import { marked } from 'marked';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// 动态导入 puppeteer，根据环境选择
+let puppeteer;
+let chromium;
+
+// 检测是否在 Vercel/serverless 环境
+const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+// 初始化 puppeteer（延迟加载）
+async function getPuppeteer() {
+    if (!puppeteer) {
+        if (isVercel) {
+            // Vercel/serverless 环境：使用 puppeteer-core + @sparticuz/chromium
+            puppeteer = (await import('puppeteer-core')).default;
+            chromium = (await import('@sparticuz/chromium')).default;
+            
+            // 配置 Chromium 选项（减少内存使用）
+            chromium.setGraphicsMode(false);
+        } else {
+            // 本地开发环境：使用标准 puppeteer
+            puppeteer = (await import('puppeteer')).default;
+        }
+    }
+    return { puppeteer, chromium };
+}
 
 dotenv.config({ path: join(__dirname, '.env') });
 dotenv.config();
@@ -304,10 +328,32 @@ async function streamChatMessages(body, apiKey) {
 async function generatePDFFromMarkdown(markdownContent, options = {}) {
     let browser;
     try {
-        browser = await puppeteer.launch({
+        // 获取正确的 puppeteer 实例
+        const { puppeteer: pptr, chromium: chrom } = await getPuppeteer();
+        
+        const launchOptions = {
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote'
+            ]
+        };
+
+        // 在 Vercel 环境中使用 @sparticuz/chromium
+        if (isVercel && chrom) {
+            launchOptions.executablePath = await chrom.executablePath();
+            // 添加 Chromium 特定的参数
+            launchOptions.args.push(...chrom.args);
+            console.log('[PDF] Using @sparticuz/chromium for PDF generation');
+        } else {
+            console.log('[PDF] Using standard puppeteer for PDF generation');
+        }
+
+        browser = await pptr.launch(launchOptions);
         const page = await browser.newPage();
 
         // Convert markdown to HTML
