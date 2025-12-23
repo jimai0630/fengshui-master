@@ -1164,6 +1164,210 @@ app.post('/api/stripe/webhook', async (req, res) => {
 });
 
 /**
+ * Async Report Generation Endpoints
+ */
+
+// Initialize Supabase client (lazy load)
+let supabaseClient = null;
+async function getSupabaseClient() {
+    if (!supabaseClient) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = process.env.VITE_SUPABASE_URL;
+        const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+            throw new Error('Supabase configuration missing');
+        }
+        
+        supabaseClient = createClient(supabaseUrl, supabaseKey);
+    }
+    return supabaseClient;
+}
+
+/**
+ * Background report generation function
+ */
+async function processReportGeneration(userData, houseGridJson, consultationId) {
+    const supabase = await getSupabaseClient();
+    
+    try {
+        // Check if report is already being processed or completed (idempotency)
+        const { data: existing } = await supabase
+            .from('consultations')
+            .select('report_status, full_report_result')
+            .eq('id', consultationId)
+            .single();
+        
+        if (existing?.report_status === 'processing') {
+            console.log('[async-report] Report already processing, skipping duplicate job');
+            return;
+        }
+        
+        if (existing?.report_status === 'completed') {
+            console.log('[async-report] Report already completed');
+            return;
+        }
+        
+        // Update status to processing
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'processing',
+                report_started_at: new Date().toISOString()
+            })
+            .eq('id', consultationId);
+        
+        console.log('[async-report] Starting report generation for:', userData.email);
+        
+        // Call Dify for full report
+        const payload = {
+            inputs: {
+                mode: 'full_report',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo,
+                benming_star_name: userData.benmingStarName,
+                house_type: userData.houseType || 'apartment',
+                floor_index: String(userData.floorIndex || '1'),
+                house_grid_json: houseGridJson,
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请生成我的2026年完整风水报告。',
+            response_mode: 'streaming',
+            user: userData.email
+        };
+        
+        const { fullAnswer, conversationId } = await postStreamingToDify(
+            '/chat-messages', 
+            payload, 
+            DIFY_API_KEY_REPORT
+        );
+        
+        console.log('[async-report] Dify response received, generating PDF...');
+        
+        // Generate PDF
+        let pdfBase64 = null;
+        try {
+            const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
+            pdfBase64 = pdfBuffer.toString('base64');
+            console.log('[async-report] PDF generated successfully');
+        } catch (pdfError) {
+            console.error('[async-report] PDF generation failed:', pdfError);
+            // Continue without PDF - user can still see markdown
+        }
+        
+        // Save completed report to Supabase
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'completed',
+                report_completed_at: new Date().toISOString(),
+                full_report_result: {
+                    report_content: fullAnswer,
+                    pdf_base64: pdfBase64,
+                    conversation_id: conversationId
+                },
+                report_conversation_id: conversationId,
+                payment_completed: true
+            })
+            .eq('id', consultationId);
+            
+        console.log('[async-report] Report generation completed for:', userData.email);
+        
+    } catch (error) {
+        console.error('[async-report] Report generation failed:', error);
+        
+        // Update status to failed
+        try {
+            await supabase
+                .from('consultations')
+                .update({
+                    report_status: 'failed',
+                    report_error: error.message,
+                    report_completed_at: new Date().toISOString()
+                })
+                .eq('id', consultationId);
+        } catch (updateError) {
+            console.error('[async-report] Failed to update error status:', updateError);
+        }
+    }
+}
+
+/**
+ * Start async report generation
+ */
+app.post('/api/dify/full-report-async', async (req, res) => {
+    try {
+        const { userData, houseGridJson, consultationId } = req.body;
+        
+        // Validate required fields
+        if (!userData?.email || !userData?.birthDate || !houseGridJson) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        if (!consultationId) {
+            return res.status(400).json({ error: 'Missing consultationId' });
+        }
+        
+        console.log('[async-report] Starting async report generation for:', userData.email);
+        
+        // Immediately return job started response
+        res.json({
+            status: 'processing',
+            message: 'Report generation started',
+            consultationId
+        });
+        
+        // Process in background (don't await)
+        processReportGeneration(userData, houseGridJson, consultationId)
+            .catch(err => {
+                console.error('[async-report] Background job failed:', err);
+            });
+            
+    } catch (error) {
+        console.error('[async-report] Error starting job:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Check report status
+ */
+app.get('/api/dify/report-status/:consultationId', async (req, res) => {
+    try {
+        const { consultationId } = req.params;
+        
+        const supabase = await getSupabaseClient();
+        
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('report_status, report_error, full_report_result, report_completed_at')
+            .eq('id', consultationId)
+            .single();
+            
+        if (error) {
+            console.error('[report-status] Supabase error:', error);
+            throw error;
+        }
+        
+        if (!data) {
+            return res.status(404).json({ error: 'Consultation not found' });
+        }
+        
+        res.json({
+            status: data.report_status,
+            error: data.report_error,
+            report: data.full_report_result,
+            completedAt: data.report_completed_at
+        });
+        
+    } catch (error) {
+        console.error('[report-status] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * Generate PDF from markdown content endpoint
  */
 app.post('/api/pdf/generate', async (req, res) => {

@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import type { FullReportResponse } from '../types/dify';
 
 type Props = {
     report: FullReportResponse;
     userEmail: string;
+    progress?: number; // 0-100
 };
 
 /**
@@ -20,119 +21,53 @@ const decodeBase64PDF = (base64String: string): Blob => {
 
         // 移除可能的 data URL 前缀
         let cleanBase64 = base64String.replace(/^data:application\/pdf;base64,/, '');
-        
+
         // 移除所有空白字符（空格、换行符、制表符等）
         cleanBase64 = cleanBase64.replace(/\s/g, '');
-        
+
         // 检查并移除无效字符（在验证之前）
-        // 注意：逗号(44)可能是 JSON 序列化问题，需要特别处理
         const invalidChars = cleanBase64.match(/[^A-Za-z0-9+/=]/);
         if (invalidChars) {
             console.warn('Found invalid characters in base64, attempting to clean...');
-            const uniqueInvalidChars = Array.from(new Set(invalidChars));
-            console.warn('Invalid characters:', uniqueInvalidChars.map(c => `'${c}' (${c.charCodeAt(0)})`).join(', '));
-            console.warn('First invalid char code:', invalidChars[0].charCodeAt(0));
-            
-            // 记录清理前的位置，以便调试
-            const beforeLength = cleanBase64.length;
-            const beforePreview = cleanBase64.substring(0, 100);
-            
-            // 移除所有无效字符（包括逗号、引号等）
             cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
-            
-            console.warn(`Removed ${beforeLength - cleanBase64.length} invalid characters`);
-            console.warn('Before cleaning preview:', beforePreview);
-            console.warn('After cleaning preview:', cleanBase64.substring(0, 100));
-            
-            // 如果清理后长度变化很大，可能有问题
-            if (beforeLength - cleanBase64.length > beforeLength * 0.1) {
-                console.error(`Warning: Removed more than 10% of characters (${beforeLength - cleanBase64.length}/${beforeLength})`);
-            }
         }
-        
-        // 验证 base64 格式（只包含 A-Z, a-z, 0-9, +, /, =）
+
+        // 验证 base64 格式
         if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
-            // 如果验证仍然失败，输出详细调试信息
-            console.error('Base64 validation failed after cleaning');
-            console.error('Clean base64 length:', cleanBase64.length);
-            console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
-            console.error('Clean base64 last 200 chars:', cleanBase64.substring(Math.max(0, cleanBase64.length - 200)));
-            
-            // 尝试显示字符码
-            const firstInvalid = cleanBase64.match(/[^A-Za-z0-9+/=]/);
-            if (firstInvalid) {
-                console.error('First invalid char after cleaning:', firstInvalid[0], 'code:', firstInvalid[0].charCodeAt(0));
-            }
-            
             throw new Error('Invalid base64 format: contains invalid characters after cleaning');
         }
-        
-        // 验证长度
-        if (cleanBase64.length === 0) {
-            throw new Error('Empty base64 string after cleaning');
-        }
-        
+
         // 检查长度是否为 4 的倍数（base64 要求）
         if (cleanBase64.length % 4 !== 0) {
-            console.warn(`Base64 length (${cleanBase64.length}) is not a multiple of 4, attempting to pad...`);
-            // 尝试添加填充
             const padding = 4 - (cleanBase64.length % 4);
             cleanBase64 += '='.repeat(padding);
-            console.warn(`Added ${padding} padding characters`);
         }
-        
+
         // 解码 base64
-        let byteCharacters: string;
-        try {
-            byteCharacters = atob(cleanBase64);
-        } catch (atobError) {
-            console.error('atob failed:', atobError);
-            console.error('Clean base64 length:', cleanBase64.length);
-            console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
-            throw atobError;
-        }
-        
+        const byteCharacters = atob(cleanBase64);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        
-        // 验证 PDF 文件头（PDF 文件应该以 %PDF 开头）
+
+        // 验证 PDF 文件头
         const pdfHeader = new Uint8Array(byteArray.slice(0, 4));
         const pdfHeaderString = String.fromCharCode(...pdfHeader);
         if (pdfHeaderString !== '%PDF') {
-            console.error('Invalid PDF file header:', pdfHeaderString);
-            console.error('Expected: %PDF');
-            console.error('First 100 bytes:', Array.from(byteArray.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' '));
             throw new Error('Invalid PDF file: file header does not match PDF format');
         }
-        
+
         console.log('PDF file validated successfully, size:', byteArray.length, 'bytes');
-        
+
         return new Blob([byteArray], { type: 'application/pdf' });
     } catch (error) {
         console.error('Failed to decode base64 PDF:', error);
-        console.error('Original base64 string length:', base64String?.length);
-        console.error('Original base64 string type:', typeof base64String);
-        console.error('Original base64 string preview (first 200):', base64String?.substring(0, 200));
-        console.error('Original base64 string preview (last 200):', base64String?.substring(Math.max(0, (base64String?.length || 0) - 200)));
-        
-        // 显示字符码以帮助调试
-        if (base64String && base64String.length > 0) {
-            const first50Chars = base64String.substring(0, 50);
-            const charCodes = first50Chars.split('').map((c, i) => {
-                const code = c.charCodeAt(0);
-                return `${i}: '${c}' (${code})`;
-            }).join(', ');
-            console.error('First 50 chars with codes:', charCodes);
-        }
-        
         throw new Error(`PDF 解码失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 };
 
-const ReportSection: React.FC<Props> = ({ report, userEmail }) => {
+const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => {
     const { t } = useTranslation();
     const [downloading, setDownloading] = React.useState(false);
 
@@ -144,9 +79,7 @@ const ReportSection: React.FC<Props> = ({ report, userEmail }) => {
 
         setDownloading(true);
         try {
-            // Convert base64 to blob using helper function
             const blob = decodeBase64PDF(report.pdf_base64);
-
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -160,38 +93,168 @@ const ReportSection: React.FC<Props> = ({ report, userEmail }) => {
         setDownloading(false);
     };
 
-    return (
-        <section className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-                {t('consultation.reportReady')}
-            </h2>
+    // Show processing state with progress bar
+    if (!report.report_content || report.status === 'processing') {
+        return (
+            <div className="max-w-4xl mx-auto px-4 py-12">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                    {/* Header */}
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full mb-4">
+                            <Loader2 className="w-10 h-10 text-amber-600 animate-spin" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                            {t('consultation.report.generating')}
+                        </h2>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            {t('consultation.report.generatingDescription')}
+                        </p>
+                    </div>
 
-            {/* Markdown Content Preview */}
-            <div className="prose dark:prose-invert max-w-none mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg max-h-96 overflow-y-auto">
-                <div dangerouslySetInnerHTML={{ __html: report.report_content }} />
+                    {/* Progress Bar */}
+                    <div className="mb-8">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {t('consultation.report.progress')}
+                            </span>
+                            <span className="text-sm font-bold text-amber-600">
+                                {progress}%
+                            </span>
+                        </div>
+                        <div className="relative h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500 ease-out"
+                                style={{ width: `${progress}%` }}
+                            >
+                                {/* Animated shimmer effect */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Status Messages */}
+                    <div className="space-y-3 mb-8">
+                        <div className="flex items-center gap-3 text-sm">
+                            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                            <span className="text-gray-700 dark:text-gray-300">
+                                {t('consultation.report.paymentConfirmed')}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                            {progress < 100 ? (
+                                <Loader2 className="w-5 h-5 text-amber-500 animate-spin flex-shrink-0" />
+                            ) : (
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                            )}
+                            <span className="text-gray-700 dark:text-gray-300">
+                                {t('consultation.report.analyzingData')}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                            <div className={`w-5 h-5 flex-shrink-0 ${progress < 100 ? 'text-gray-400' : 'text-green-500'}`}>
+                                {progress < 100 ? (
+                                    <div className="w-5 h-5 border-2 border-gray-300 rounded-full" />
+                                ) : (
+                                    <CheckCircle className="w-5 h-5" />
+                                )}
+                            </div>
+                            <span className={`${progress < 100 ? 'text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                                {t('consultation.report.generatingPDF')}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Download Button (Disabled) */}
+                    <button
+                        disabled
+                        className="w-full py-4 px-6 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl font-semibold cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        <Download className="w-5 h-5" />
+                        {t('consultation.report.downloadPending')}
+                    </button>
+
+                    {/* Important Notice */}
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-1">
+                                    {t('consultation.report.importantNotice')}
+                                </p>
+                                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                                    <li>• {t('consultation.report.doNotRefresh')}</li>
+                                    <li>• {t('consultation.report.estimatedTime')}</li>
+                                    <li>• {t('consultation.report.autoDownload')}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recovery Info */}
+                    <div className="mt-4 text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('consultation.report.refreshRecovery')}
+                        </p>
+                    </div>
+                </div>
             </div>
+        );
+    }
 
-            {/* Download Button */}
-            {report.pdf_base64 && (
-                <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                    {downloading ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            {t('consultation.processing')}
-                        </>
-                    ) : (
-                        <>
-                            <Download className="w-5 h-5" />
-                            {t('consultation.downloadReport')}
-                        </>
-                    )}
-                </button>
-            )}
-        </section>
+    // Show completed report with enabled download button
+    return (
+        <div className="max-w-4xl mx-auto px-4 py-12">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+                {/* Success Header */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                        <CheckCircle className="w-10 h-10 text-green-600" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                        {t('consultation.report.completed')}
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                        {t('consultation.report.completedDescription')}
+                    </p>
+                </div>
+
+                {/* Download Button (Enabled) */}
+                {report.pdf_base64 && (
+                    <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        className="w-full py-4 px-6 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mb-8"
+                    >
+                        {downloading ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                {t('consultation.processing')}
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-5 h-5" />
+                                {t('consultation.report.downloadNow')}
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {/* Report Preview */}
+                <div className="prose dark:prose-invert max-w-none">
+                    <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+                        <h3 className="text-lg font-semibold mb-4">
+                            {t('consultation.report.preview')}
+                        </h3>
+                        <div
+                            className="text-sm text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto"
+                            dangerouslySetInnerHTML={{
+                                __html: report.report_content.substring(0, 1000) + '...'
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 

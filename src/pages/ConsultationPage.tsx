@@ -11,13 +11,13 @@ import PaymentSection from '../components/PaymentSection';
 import ReportSection from '../components/ReportSection';
 
 // Services
-import { uploadFile, callLayoutGrid, callEnergySummary, callFullReport } from '../services/difyService';
+import { uploadFile, callLayoutGrid, callEnergySummary } from '../services/difyService';
 import {
     loadConsultationState,
     updateConsultationState
 } from '../services/consultationStateService';
 import { confirmPayment } from '../services/stripeService';
-import { savePaymentRecord, generateFloorPlansHash } from '../services/supabaseService';
+import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId } from '../services/supabaseService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
 
 // Types
@@ -46,10 +46,10 @@ const decodeBase64PDF = (base64String: string): Blob => {
 
         // 移除可能的 data URL 前缀
         let cleanBase64 = base64String.replace(/^data:application\/pdf;base64,/, '');
-        
+
         // 移除所有空白字符（空格、换行符、制表符等）
         cleanBase64 = cleanBase64.replace(/\s/g, '');
-        
+
         // 检查并移除无效字符（在验证之前）
         // 注意：逗号(44)可能是 JSON 序列化问题，需要特别处理
         const invalidChars = cleanBase64.match(/[^A-Za-z0-9+/=]/);
@@ -58,24 +58,24 @@ const decodeBase64PDF = (base64String: string): Blob => {
             const uniqueInvalidChars = Array.from(new Set(invalidChars));
             console.warn('Invalid characters:', uniqueInvalidChars.map(c => `'${c}' (${c.charCodeAt(0)})`).join(', '));
             console.warn('First invalid char code:', invalidChars[0].charCodeAt(0));
-            
+
             // 记录清理前的位置，以便调试
             const beforeLength = cleanBase64.length;
             const beforePreview = cleanBase64.substring(0, 100);
-            
+
             // 移除所有无效字符（包括逗号、引号等）
             cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
-            
+
             console.warn(`Removed ${beforeLength - cleanBase64.length} invalid characters`);
             console.warn('Before cleaning preview:', beforePreview);
             console.warn('After cleaning preview:', cleanBase64.substring(0, 100));
-            
+
             // 如果清理后长度变化很大，可能有问题
             if (beforeLength - cleanBase64.length > beforeLength * 0.1) {
                 console.error(`Warning: Removed more than 10% of characters (${beforeLength - cleanBase64.length}/${beforeLength})`);
             }
         }
-        
+
         // 验证 base64 格式（只包含 A-Z, a-z, 0-9, +, /, =）
         if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
             // 如果验证仍然失败，输出详细调试信息
@@ -83,21 +83,21 @@ const decodeBase64PDF = (base64String: string): Blob => {
             console.error('Clean base64 length:', cleanBase64.length);
             console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
             console.error('Clean base64 last 200 chars:', cleanBase64.substring(Math.max(0, cleanBase64.length - 200)));
-            
+
             // 尝试显示字符码
             const firstInvalid = cleanBase64.match(/[^A-Za-z0-9+/=]/);
             if (firstInvalid) {
                 console.error('First invalid char after cleaning:', firstInvalid[0], 'code:', firstInvalid[0].charCodeAt(0));
             }
-            
+
             throw new Error('Invalid base64 format: contains invalid characters after cleaning');
         }
-        
+
         // 验证长度
         if (cleanBase64.length === 0) {
             throw new Error('Empty base64 string after cleaning');
         }
-        
+
         // 检查长度是否为 4 的倍数（base64 要求）
         if (cleanBase64.length % 4 !== 0) {
             console.warn(`Base64 length (${cleanBase64.length}) is not a multiple of 4, attempting to pad...`);
@@ -106,7 +106,7 @@ const decodeBase64PDF = (base64String: string): Blob => {
             cleanBase64 += '='.repeat(padding);
             console.warn(`Added ${padding} padding characters`);
         }
-        
+
         // 解码 base64
         let byteCharacters: string;
         try {
@@ -117,13 +117,13 @@ const decodeBase64PDF = (base64String: string): Blob => {
             console.error('Clean base64 first 200 chars:', cleanBase64.substring(0, 200));
             throw atobError;
         }
-        
+
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        
+
         // 验证 PDF 文件头（PDF 文件应该以 %PDF 开头）
         const pdfHeader = new Uint8Array(byteArray.slice(0, 4));
         const pdfHeaderString = String.fromCharCode(...pdfHeader);
@@ -133,9 +133,9 @@ const decodeBase64PDF = (base64String: string): Blob => {
             console.error('First 100 bytes:', Array.from(byteArray.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' '));
             throw new Error('Invalid PDF file: file header does not match PDF format');
         }
-        
+
         console.log('PDF file validated successfully, size:', byteArray.length, 'bytes');
-        
+
         return new Blob([byteArray], { type: 'application/pdf' });
     } catch (error) {
         console.error('Failed to decode base64 PDF:', error);
@@ -143,7 +143,7 @@ const decodeBase64PDF = (base64String: string): Blob => {
         console.error('Original base64 string type:', typeof base64String);
         console.error('Original base64 string preview (first 200):', base64String?.substring(0, 200));
         console.error('Original base64 string preview (last 200):', base64String?.substring(Math.max(0, (base64String?.length || 0) - 200)));
-        
+
         // 显示字符码以帮助调试
         if (base64String && base64String.length > 0) {
             const first50Chars = base64String.substring(0, 50);
@@ -153,7 +153,7 @@ const decodeBase64PDF = (base64String: string): Blob => {
             }).join(', ');
             console.error('First 50 chars with codes:', charCodes);
         }
-        
+
         throw new Error(`PDF 解码失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 };
@@ -184,6 +184,10 @@ const ConsultationPage: React.FC = () => {
     // Ref to prevent double execution of energy analysis
     const isExecutingEnergyAnalysis = useRef(false);
 
+    // State for async report polling and progress
+    const [reportPollingInterval, setReportPollingInterval] = useState<number | null>(null);
+    const [reportProgress, setReportProgress] = useState(0);
+
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -204,7 +208,7 @@ const ConsultationPage: React.FC = () => {
             if (userData.email && userData.birthDate && userData.gender && houseType && floorPlans.length > 0) {
                 // Only load state if we have all required parameters
                 const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
-                
+
                 if (floorPlanFileIds.length > 0) {
                     try {
                         const savedState = await loadConsultationState(
@@ -214,18 +218,18 @@ const ConsultationPage: React.FC = () => {
                             houseType,
                             floorPlanFileIds
                         );
-                        
+
                         if (savedState) {
                             // Don't auto-load saved state if user is starting a fresh analysis
                             // Check if we have initial user data which indicates a fresh start from homepage
                             const isFreshStart = initialUserData && Object.keys(initialUserData).length > 0;
-                            
+
                             // If user is starting fresh, don't restore old state
                             if (isFreshStart) {
                                 console.log('Fresh start detected, skipping state restoration');
                                 return;
                             }
-                            
+
                             // Only restore state if we're not explicitly on floor-plan-upload (which means user is starting fresh)
                             // Or if it's a page refresh and we should restore progress
                             if (currentStep === 'floor-plan-upload' && !isFreshStart) {
@@ -234,13 +238,13 @@ const ConsultationPage: React.FC = () => {
                                 console.log('On initial step, not restoring state to allow fresh start');
                                 return;
                             }
-                            
+
                             // Validate savedState has required fields before using
                             if (!savedState.currentStep || !savedState.userData || !savedState.floorPlans || !savedState.houseType) {
                                 console.warn('Invalid saved state, skipping restoration');
                                 return;
                             }
-                            
+
                             // Return 'processing' state to 'floor-plan-upload' if getting stuck
                             // Or resume intelligently based on existing results
                             let step = savedState.currentStep;
@@ -277,19 +281,19 @@ const ConsultationPage: React.FC = () => {
                             }
                         }
                     } catch (error) {
-                    // Handle Supabase errors gracefully
-                    console.error('Failed to load consultation state from Supabase:', error);
-                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                    
-                    // Only show error if it's a configuration issue, not if it's just "no data found"
-                    if (errorMessage.includes('not configured') || errorMessage.includes('Supabase')) {
-                        setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Please contact support.'));
+                        // Handle Supabase errors gracefully
+                        console.error('Failed to load consultation state from Supabase:', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+                        // Only show error if it's a configuration issue, not if it's just "no data found"
+                        if (errorMessage.includes('not configured') || errorMessage.includes('Supabase')) {
+                            setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Please contact support.'));
+                        }
+                        // For other errors (network issues, etc.), silently fail and let user start fresh
                     }
-                    // For other errors (network issues, etc.), silently fail and let user start fresh
                 }
             }
-        }
-    };
+        };
 
         loadSavedState();
     }, [userData.email, userData.birthDate, userData.gender, houseType, floorPlans, location.state, currentStep, initialUserData, t]);
@@ -310,7 +314,7 @@ const ConsultationPage: React.FC = () => {
                 // Handle Supabase save errors gracefully
                 console.error('Failed to save consultation state to Supabase:', error);
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                
+
                 // Only show error if it's a critical issue (configuration), not for temporary network issues
                 if (errorMessage.includes('not configured')) {
                     setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Your progress may not be saved.'));
@@ -495,102 +499,199 @@ const ConsultationPage: React.FC = () => {
         setCurrentStep('payment');
     };
 
-    // Handler: Payment success
+    // Handler: Payment success (ASYNC VERSION)
     const handlePaymentSuccess = async (paymentIntentId: string) => {
         setError(null);
 
         try {
             setIsLoading(true);
 
-            // Confirm payment on backend
-            let paymentRecord = null;
-            try {
-                const paymentResponse = await confirmPayment({
-                    paymentIntentId,
-                    consultationId: undefined, // We'll link it after getting consultation ID
+            // 1. Confirm payment on backend
+            const paymentResponse = await confirmPayment({
+                paymentIntentId,
+                consultationId: undefined,
+            });
+
+            // 2. Save payment record
+            if (paymentResponse.paymentIntent) {
+                const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+                const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
+
+                await savePaymentRecord({
+                    payment_intent_id: paymentIntentId,
+                    amount: paymentResponse.paymentIntent.amount,
+                    currency: paymentResponse.paymentIntent.currency,
+                    status: paymentResponse.paymentIntent.status as any,
+                    metadata: {
+                        email: userData.email || '',
+                        floor_plans_hash: floorPlansHash,
+                    },
                 });
-
-                // Save payment record to database
-                if (paymentResponse.paymentIntent) {
-                    const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
-                    const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
-
-                    // Try to get consultation ID from Supabase
-                    // For now, we'll save payment without consultation_id and link it later
-                    paymentRecord = await savePaymentRecord({
-                        payment_intent_id: paymentIntentId,
-                        amount: paymentResponse.paymentIntent.amount,
-                        currency: paymentResponse.paymentIntent.currency,
-                        status: paymentResponse.paymentIntent.status as any,
-                        metadata: {
-                            email: userData.email || '',
-                            floor_plans_hash: floorPlansHash,
-                        },
-                    });
-
-                    console.log('[Payment] Payment record saved:', paymentRecord?.id);
-                }
-            } catch (paymentError) {
-                console.error('Failed to confirm/save payment:', paymentError);
-                // Continue with report generation even if payment confirmation fails
-                // The webhook will handle it asynchronously
             }
 
-            // Call Agent2 (Full Report)
-            const { result } = await callFullReport(
-                userData as UserCompleteData,
-                JSON.stringify(layoutGridResult),
-                (progress) => console.log('Report generation progress:', progress)
+            // 3. Get consultation ID
+            const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+            const consultationId = await getOrCreateConsultationId(
+                userData.email!,
+                userData.birthDate!,
+                userData.gender!,
+                houseType,
+                floorPlanFileIds
             );
 
-            setFullReportResult(result);
-            setCurrentStep('report');
+            // Save consultation ID to userData and localStorage for recovery
+            setUserData(prev => ({ ...prev, consultationId }));
+            localStorage.setItem(`consultation_id_${userData.email}`, consultationId);
 
-            // Auto-download PDF if available
-            if (result.pdf_base64) {
-                console.log('[Payment] PDF base64 received, length:', result.pdf_base64.length);
-                console.log('[Payment] PDF base64 preview (first 100 chars):', result.pdf_base64.substring(0, 100));
-                
-                try {
-                    // Trigger download after a short delay to ensure UI is updated
-                    setTimeout(() => {
-                        try {
-                            const blob = decodeBase64PDF(result.pdf_base64!);
-                            
-                            console.log('[Payment] PDF blob created successfully, size:', blob.size, 'bytes');
-                            
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `FengShui_Report_${userData.email || 'user'}_${new Date().toISOString().split('T')[0]}.pdf`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            window.URL.revokeObjectURL(url);
-                            
-                            console.log('[Payment] PDF download triggered successfully');
-                        } catch (pdfError) {
-                            console.error('Auto-download PDF failed:', pdfError);
-                            console.error('PDF base64 length:', result.pdf_base64?.length);
-                            console.error('PDF base64 type:', typeof result.pdf_base64);
-                            // 显示用户友好的错误提示
-                            alert('PDF 下载失败，请稍后重试或联系客服');
-                        }
-                    }, 1000);
-                } catch (pdfError) {
-                    console.error('Auto-download PDF failed:', pdfError);
-                    // Don't block the flow if download fails
-                }
-            } else {
-                console.warn('[Payment] No PDF base64 in result');
-            }
+            // 4. Start async report generation
+            await fetch('/api/dify/full-report-async', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userData: userData as UserCompleteData,
+                    houseGridJson: JSON.stringify(layoutGridResult),
+                    consultationId
+                })
+            });
+
+            console.log('[Payment] Async report generation started');
+
+            // 5. Move to report page with processing state
+            setCurrentStep('report');
+            setFullReportResult({
+                report_content: '',
+                pdf_base64: undefined,
+                conversation_id: '',
+                status: 'processing'
+            } as FullReportResponse);
+
+            // 6. Start polling for completion
+            startReportPolling(consultationId);
+
         } catch (err) {
-            console.error('Report generation error:', err);
-            setError(t('consultation.errors.reportGenerationError'));
+            console.error('Payment processing error:', err);
+            setError(t('consultation.errors.paymentProcessingError'));
         } finally {
             setIsLoading(false);
         }
     };
+
+    // Polling function with progress simulation
+    const startReportPolling = useCallback((consultationId: string) => {
+        let attempts = 0;
+        const maxAttempts = 120; // 10 minutes (5s interval)
+        const startTime = Date.now();
+
+        // Simulate progress (0-90% during generation, 90-100% when completed)
+        const progressInterval = setInterval(() => {
+            setReportProgress(prev => {
+                if (prev < 90) {
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const progress = Math.min(90, (elapsed / 60) * 90); // 60s estimate
+                    return Math.floor(progress);
+                }
+                return prev;
+            });
+        }, 1000);
+
+        const interval = setInterval(async () => {
+            attempts++;
+
+            try {
+                const response = await fetch(`/api/dify/report-status/${consultationId}`);
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    clearInterval(progressInterval);
+                    setReportPollingInterval(null);
+                    setReportProgress(100);
+                    setFullReportResult(data.report);
+
+                    // Auto-download PDF if available
+                    if (data.report?.pdf_base64) {
+                        setTimeout(() => {
+                            try {
+                                const blob = decodeBase64PDF(data.report.pdf_base64);
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `FengShui_Report_${userData.email || 'user'}_${new Date().toISOString().split('T')[0]}.pdf`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                                console.log('[Polling] PDF downloaded successfully');
+                            } catch (pdfError) {
+                                console.error('[Polling] PDF download failed:', pdfError);
+                            }
+                        }, 500);
+                    }
+                } else if (data.status === 'failed') {
+                    clearInterval(interval);
+                    clearInterval(progressInterval);
+                    setReportPollingInterval(null);
+                    setError(data.error || t('consultation.errors.reportGenerationError'));
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    clearInterval(progressInterval);
+                    setReportPollingInterval(null);
+                    setError(t('consultation.errors.reportTimeout'));
+                }
+
+            } catch (err) {
+                console.error('[Polling] Error:', err);
+                // Continue polling on error
+            }
+        }, 5000); // Poll every 5 seconds
+
+        setReportPollingInterval(interval as unknown as number);
+    }, [userData.email, t]);
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => {
+            if (reportPollingInterval) {
+                clearInterval(reportPollingInterval);
+            }
+        };
+    }, [reportPollingInterval]);
+
+    // Recovery mechanism: Check for in-progress reports on mount
+    useEffect(() => {
+        const recoverReportState = async () => {
+            const consultationId = (userData as any).consultationId ||
+                localStorage.getItem(`consultation_id_${userData.email}`);
+
+            if (!consultationId || currentStep !== 'report') return;
+
+            try {
+                const response = await fetch(`/api/dify/report-status/${consultationId}`);
+                const data = await response.json();
+
+                if (data.status === 'processing') {
+                    console.log('[Recovery] Resuming report generation polling');
+                    setFullReportResult({
+                        report_content: '',
+                        pdf_base64: undefined,
+                        conversation_id: '',
+                        status: 'processing'
+                    } as FullReportResponse);
+                    startReportPolling(consultationId);
+
+                } else if (data.status === 'completed') {
+                    console.log('[Recovery] Loading completed report');
+                    setReportProgress(100);
+                    setFullReportResult(data.report);
+                }
+            } catch (err) {
+                console.error('[Recovery] Failed:', err);
+            }
+        };
+
+        recoverReportState();
+    }, []); // Run once on mount
+
 
     // Handler: Retry from error (Generic)
     const handleRetry = () => {
@@ -759,6 +860,7 @@ const ConsultationPage: React.FC = () => {
                         <ReportSection
                             report={fullReportResult}
                             userEmail={userData.email!}
+                            progress={reportProgress}
                         />
                     )}
                 </div>

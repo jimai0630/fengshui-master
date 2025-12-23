@@ -121,7 +121,12 @@ export interface EnergySummaryResponse {
 export interface FullReportResponse {
     report_content: string; // Markdown content
     pdf_base64?: string; // Base64 encoded PDF
+    conversation_id?: string; // Dify conversation ID
+    status?: 'pending' | 'processing' | 'completed' | 'failed'; // Async generation status
 }
+
+export type ReportGenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 
 export type DifyResponseMode = 'blocking' | 'streaming';
 

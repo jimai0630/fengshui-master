@@ -78,6 +78,24 @@ EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE consultations 
 ADD COLUMN IF NOT EXISTS floor_plans_data JSONB;
 
+-- Add report generation status tracking columns for async PDF generation
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS report_status TEXT DEFAULT 'pending' 
+    CHECK (report_status IN ('pending', 'processing', 'completed', 'failed'));
+
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS report_error TEXT;
+
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS report_started_at TIMESTAMPTZ;
+
+ALTER TABLE consultations 
+ADD COLUMN IF NOT EXISTS report_completed_at TIMESTAMPTZ;
+
+-- Create index for efficient status queries
+CREATE INDEX IF NOT EXISTS idx_consultations_report_status 
+ON consultations(report_status, email);
+
 -- Comments for documentation
 COMMENT ON TABLE consultations IS 'Stores feng shui consultation results and user progress';
 COMMENT ON COLUMN consultations.floor_plans_hash IS 'Hash of floor plan file IDs to detect changes';

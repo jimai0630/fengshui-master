@@ -168,6 +168,50 @@ export async function loadConsultationFromSupabase(
 }
 
 /**
+ * Get or create consultation ID for async report generation
+ */
+export async function getOrCreateConsultationId(
+    email: string,
+    birthDate: string,
+    gender: string,
+    houseType: string,
+    floorPlanFileIds: string[]
+): Promise<string> {
+    if (!supabase) {
+        throw new Error('Supabase is not configured');
+    }
+
+    const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
+
+    try {
+        // Try to find existing consultation
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('id')
+            .eq('email', email)
+            .eq('birth_date', birthDate)
+            .eq('gender', gender)
+            .eq('house_type', houseType)
+            .eq('floor_plans_hash', floorPlansHash)
+            .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+            console.log('[Supabase] Found existing consultation:', data.id);
+            return data.id;
+        }
+
+        // If not found, this means the consultation hasn't been saved yet
+        // This shouldn't happen in normal flow, but return a placeholder
+        throw new Error('Consultation not found. Please complete the analysis first.');
+    } catch (error) {
+        console.error('Failed to get consultation ID:', error);
+        throw error;
+    }
+}
+
+/**
  * Save payment record to Supabase
  */
 export async function savePaymentRecord(
@@ -289,7 +333,7 @@ export async function linkPaymentToConsultation(
         // Update consultation record
         const { error: consultationError } = await supabase
             .from('consultations')
-            .update({ 
+            .update({
                 payment_id: paymentId,
                 payment_completed: true,
                 updated_at: new Date().toISOString()

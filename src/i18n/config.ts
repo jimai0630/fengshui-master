@@ -180,11 +180,31 @@ i18n
                         },
                         reportReady: "Your report is ready!",
                         downloadReport: "Download Report",
+                        report: {
+                            generating: "Generating Your Feng Shui Report",
+                            generatingDescription: "Our AI is analyzing your data and creating a professional report",
+                            progress: "Progress",
+                            paymentConfirmed: "Payment Confirmed",
+                            analyzingData: "Analyzing Your Feng Shui Data",
+                            generatingPDF: "Generating PDF Report",
+                            downloadPending: "Report Generating, Please Wait...",
+                            downloadNow: "Download PDF Report Now",
+                            importantNotice: "Important Notice",
+                            doNotRefresh: "Please do not refresh the page while generating",
+                            estimatedTime: "Estimated time: 30-60 seconds",
+                            autoDownload: "Will auto-download when complete",
+                            refreshRecovery: "If you accidentally refresh, the system will automatically recover your progress",
+                            completed: "Report Generation Complete!",
+                            completedDescription: "Your 2026 Feng Shui Report is ready",
+                            preview: "Report Preview"
+                        },
                         errors: {
                             layoutGridFailed: "Floor plan analysis failed. Please try again.",
                             analysisError: "An error occurred during analysis. Please try again.",
                             energyAssessmentError: "Energy assessment failed. Please try again.",
-                            reportGenerationError: "Report generation failed. Please try again."
+                            reportGenerationError: "Report generation failed. Please try again.",
+                            reportTimeout: "Report generation timeout. Please try again.",
+                            paymentProcessingError: "Payment processing failed. Please try again."
                         }
                     },
                     dify: {
@@ -458,6 +478,34 @@ i18n
                         error: {
                             title: "分析中断",
                             generic: "能量分析过程中出现了问题。"
+                        },
+                        reportReady: "您的报告已准备就绪！",
+                        downloadReport: "下载报告",
+                        report: {
+                            generating: "正在生成您的风水报告",
+                            generatingDescription: "我们的AI正在为您分析数据并生成专业报告",
+                            progress: "生成进度",
+                            paymentConfirmed: "支付已确认",
+                            analyzingData: "正在分析您的风水数据",
+                            generatingPDF: "正在生成PDF报告",
+                            downloadPending: "报告生成中，请稍候...",
+                            downloadNow: "立即下载PDF报告",
+                            importantNotice: "重要提示",
+                            doNotRefresh: "请勿刷新页面，报告生成中",
+                            estimatedTime: "预计需要30-60秒",
+                            autoDownload: "完成后将自动下载",
+                            refreshRecovery: "如果不小心刷新了页面，系统会自动恢复进度",
+                            completed: "报告生成完成！",
+                            completedDescription: "您的2026年风水报告已准备就绪",
+                            preview: "报告预览"
+                        },
+                        errors: {
+                            layoutGridFailed: "户型图分析失败，请重试。",
+                            analysisError: "分析过程中出现错误，请重试。",
+                            energyAssessmentError: "能量评估失败，请重试。",
+                            reportGenerationError: "报告生成失败，请重试。",
+                            reportTimeout: "报告生成超时，请重试。",
+                            paymentProcessingError: "支付处理失败，请重试。"
                         },
                     },
                     dify: {
