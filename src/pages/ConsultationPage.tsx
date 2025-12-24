@@ -537,15 +537,25 @@ const ConsultationPage: React.FC = () => {
                 });
             }
 
-            // 3. Get consultation ID
+            // 3. Get consultation ID (with fallback for when Supabase is not configured)
             const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
-            const consultationId = await getOrCreateConsultationId(
-                userData.email!,
-                userData.birthDate!,
-                userData.gender!,
-                houseType,
-                floorPlanFileIds
-            );
+            let consultationId: string;
+
+            try {
+                consultationId = await getOrCreateConsultationId(
+                    userData.email!,
+                    userData.birthDate!,
+                    userData.gender!,
+                    houseType,
+                    floorPlanFileIds
+                );
+            } catch (error) {
+                // Fallback: Generate temporary ID if Supabase is not configured
+                console.warn('[Payment] Failed to get consultation ID from Supabase, using temporary ID:', error);
+                const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
+                consultationId = `temp_${userData.email}_${floorPlansHash}_${Date.now()}`;
+                console.log('[Payment] Using temporary consultation ID:', consultationId);
+            }
 
             // Save consultation ID to userData and localStorage for recovery
             setUserData(prev => ({ ...prev, consultationId }));
