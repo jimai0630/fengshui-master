@@ -188,6 +188,9 @@ const ConsultationPage: React.FC = () => {
     const [reportPollingInterval, setReportPollingInterval] = useState<number | null>(null);
     const [reportProgress, setReportProgress] = useState(0);
 
+    // State for payment modal
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -494,9 +497,14 @@ const ConsultationPage: React.FC = () => {
         }
     };
 
-    // Handler: Proceed to payment
+    // Handler: Proceed to payment (open modal instead of changing step)
     const handleProceedToPayment = () => {
-        setCurrentStep('payment');
+        setShowPaymentModal(true);
+    };
+
+    // Handler: Close payment modal
+    const handleClosePaymentModal = () => {
+        setShowPaymentModal(false);
     };
 
     // Handler: Payment success (ASYNC VERSION)
@@ -837,23 +845,24 @@ const ConsultationPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Step 3: Energy Result */}
+                    {/* Step 3: Energy Result with Payment Modal */}
                     {currentStep === 'energy-result' && energySummaryResult && (
                         <div>
                             <EnergyForecastSection
                                 energyData={energySummaryResult}
                                 onGenerateReport={handleProceedToPayment}
                             />
+
+                            {/* Payment Modal - triggered by showPaymentModal state */}
+                            <PaymentSection
+                                reportPrice={REPORT_PRICE}
+                                onPaymentSuccess={handlePaymentSuccess}
+                                triggerOpen={showPaymentModal}
+                                onModalClose={handleClosePaymentModal}
+                            />
                         </div>
                     )}
 
-                    {/* Step 4: Payment */}
-                    {currentStep === 'payment' && (
-                        <PaymentSection
-                            reportPrice={REPORT_PRICE}
-                            onPaymentSuccess={handlePaymentSuccess}
-                        />
-                    )}
 
                     {/* Step 5: Report */}
                     {currentStep === 'report' && fullReportResult && (
