@@ -604,13 +604,22 @@ app.post('/api/dify/layout-grid', async (req, res) => {
     try {
         const { floorPlanFileId, floorPlanFileIds, floorPlanDesc, userData } = req.body;
 
+        // Validate API key first
+        if (!DIFY_API_KEY_LAYOUT) {
+            console.error('[layout-grid] DIFY_API_KEY_LAYOUT is not configured');
+            return res.status(500).json({
+                error: 'Dify API key not configured. Please set DIFY_API_KEY_LAYOUT environment variable.'
+            });
+        }
+
         // Support both single file ID and array of IDs (take the first one)
         const targetFileId = floorPlanFileId || (floorPlanFileIds && floorPlanFileIds.length > 0 ? floorPlanFileIds[0] : null);
 
         console.log('[layout-grid] Request received:', {
             hasFileId: !!targetFileId,
             fileId: targetFileId,
-            hasUserData: !!userData
+            hasUserData: !!userData,
+            hasApiKey: !!DIFY_API_KEY_LAYOUT
         });
 
         if (!targetFileId) {
@@ -641,7 +650,8 @@ app.post('/api/dify/layout-grid', async (req, res) => {
 
         console.log('[layout-grid] Sending to Dify:', {
             user: payload.user,
-            fileId: targetFileId
+            fileId: targetFileId,
+            difyBaseUrl: DIFY_BASE_URL
         });
 
         // Streaming mode (Agent 模式不支持 blocking)
@@ -674,7 +684,11 @@ app.post('/api/dify/layout-grid', async (req, res) => {
         });
     } catch (error) {
         console.error('[layout-grid] error:', error);
-        res.status(500).json({ error: error.message || 'Layout grid failed' });
+        console.error('[layout-grid] error stack:', error.stack);
+        res.status(500).json({
+            error: error.message || 'Layout grid failed',
+            details: error.stack
+        });
     }
 });
 
