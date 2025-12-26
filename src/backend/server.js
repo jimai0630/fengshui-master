@@ -26,7 +26,7 @@ async function getPuppeteer() {
             // Vercel/serverless 环境：使用 puppeteer-core + @sparticuz/chromium
             puppeteer = (await import('puppeteer-core')).default;
             chromium = (await import('@sparticuz/chromium')).default;
-            
+
             // 配置 Chromium 选项（减少内存使用）
             chromium.setGraphicsMode(false);
         } else {
@@ -241,10 +241,10 @@ async function postStreamingToDify(path, body, apiKey) {
     } catch (err) {
         // Handle "Premature close" and other stream errors
         const errorMessage = err?.message || String(err);
-        const isPrematureClose = errorMessage.includes('Premature close') || 
-                                 errorMessage.includes('ECONNRESET') ||
-                                 errorMessage.includes('aborted');
-        
+        const isPrematureClose = errorMessage.includes('Premature close') ||
+            errorMessage.includes('ECONNRESET') ||
+            errorMessage.includes('aborted');
+
         // If we already have some answer, return partial rather than fail hard
         if (fullAnswer && fullAnswer.trim().length > 0) {
             console.warn('[Dify Stream] Stream interrupted but partial answer captured. Returning partial.', {
@@ -254,7 +254,7 @@ async function postStreamingToDify(path, body, apiKey) {
             });
             return { fullAnswer, conversationId, events: eventSnippets, firstErrorPayload, partial: true };
         }
-        
+
         // If it's a premature close and we have no answer, provide more context
         if (isPrematureClose) {
             console.error('[Dify Stream] Premature close error:', {
@@ -265,7 +265,7 @@ async function postStreamingToDify(path, body, apiKey) {
             });
             throw new Error(`Dify stream connection closed prematurely. This may be due to network issues or Dify API timeout. ${firstErrorPayload ? `Error from Dify: ${JSON.stringify(firstErrorPayload)}` : ''}`);
         }
-        
+
         throw err;
     }
 
@@ -330,7 +330,7 @@ async function generatePDFFromMarkdown(markdownContent, options = {}) {
     try {
         // 获取正确的 puppeteer 实例
         const { puppeteer: pptr, chromium: chrom } = await getPuppeteer();
-        
+
         const launchOptions = {
             headless: true,
             args: [
@@ -683,7 +683,7 @@ app.post('/api/dify/layout-grid', async (req, res) => {
  * Handle GET requests with friendly error message
  */
 app.get('/api/dify/energy-summary', (req, res) => {
-    res.status(405).json({ 
+    res.status(405).json({
         error: 'Method not allowed. This endpoint only accepts POST requests.',
         method: 'POST',
         endpoint: '/api/dify/energy-summary'
@@ -739,9 +739,9 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             } catch (err) {
                 lastError = err;
                 const errorMessage = err?.message || String(err);
-                const isConnectionError = err?.code === 'ECONNRESET' || 
-                                         errorMessage.includes('Premature close') ||
-                                         errorMessage.includes('aborted');
+                const isConnectionError = err?.code === 'ECONNRESET' ||
+                    errorMessage.includes('Premature close') ||
+                    errorMessage.includes('aborted');
 
                 // Retry on connection errors (connection reset or premature close)
                 if (isConnectionError && attempt < MAX_RETRIES) {
@@ -768,7 +768,7 @@ app.post('/api/dify/energy-summary', async (req, res) => {
  * Handle GET requests with friendly error message
  */
 app.get('/api/dify/full-report', (req, res) => {
-    res.status(405).json({ 
+    res.status(405).json({
         error: 'Method not allowed. This endpoint only accepts POST requests.',
         method: 'POST',
         endpoint: '/api/dify/full-report'
@@ -841,7 +841,7 @@ app.post('/api/dify/full-report', async (req, res) => {
             // Wait a bit to ensure all data is processed
             console.log('[full-report] No PDF in Dify response, generating from markdown...');
             console.log('[full-report] Markdown content length:', fullAnswer.length);
-            
+
             // Output full content for testing before PDF generation
             console.log('='.repeat(80));
             console.log('[full-report] FULL MARKDOWN CONTENT (for testing):');
@@ -850,11 +850,11 @@ app.post('/api/dify/full-report', async (req, res) => {
             console.log('='.repeat(80));
             console.log('[full-report] End of markdown content');
             console.log('='.repeat(80));
-            
+
             try {
                 console.log('[full-report] Calling generatePDFFromMarkdown...');
                 const pdfResult = await generatePDFFromMarkdown(fullAnswer);
-                
+
                 // Handle different return types from puppeteer
                 let pdfBuffer;
                 if (Buffer.isBuffer(pdfResult)) {
@@ -869,29 +869,29 @@ app.post('/api/dify/full-report', async (req, res) => {
                     console.error('[full-report] Unexpected PDF result type:', typeof pdfResult, pdfResult);
                     throw new Error(`PDF generation returned unexpected type: ${typeof pdfResult}`);
                 }
-                
+
                 // Only process if we got a buffer
                 if (pdfBuffer) {
                     // Validate PDF buffer before encoding
                     if (!Buffer.isBuffer(pdfBuffer)) {
                         throw new Error('PDF buffer is not a Buffer instance after conversion');
                     }
-                    
+
                     console.log('[full-report] PDF buffer size:', pdfBuffer.length, 'bytes');
                     const pdfHeaderFromBuffer = pdfBuffer.slice(0, 4).toString('ascii');
                     console.log('[full-report] PDF buffer header:', pdfHeaderFromBuffer);
-                    
+
                     if (pdfHeaderFromBuffer !== '%PDF') {
                         console.error('[full-report] Invalid PDF buffer header:', pdfHeaderFromBuffer);
                         console.error('[full-report] First 20 bytes (hex):', pdfBuffer.slice(0, 20).toString('hex'));
                         throw new Error('Generated PDF buffer does not have valid PDF header');
                     }
-                    
+
                     // Convert to base64
                     pdfBase64 = pdfBuffer.toString('base64');
                     console.log('[full-report] Base64 encoding completed, length:', pdfBase64.length);
                     console.log('[full-report] Base64 preview (first 50 chars):', pdfBase64.substring(0, 50));
-                    
+
                     // Validate base64 contains expected characters
                     const base64Chars = pdfBase64.match(/[^A-Za-z0-9+/=]/g);
                     if (base64Chars) {
@@ -900,7 +900,7 @@ app.post('/api/dify/full-report', async (req, res) => {
                         pdfBase64 = pdfBase64.replace(/[^A-Za-z0-9+/=]/g, '');
                         console.log('[full-report] Cleaned base64, new length:', pdfBase64.length);
                     }
-                    
+
                     console.log('[full-report] PDF generated successfully, final base64 length:', pdfBase64.length);
                 }
             } catch (pdfError) {
@@ -920,7 +920,7 @@ app.post('/api/dify/full-report', async (req, res) => {
                 // Log first few characters for debugging
                 console.log('[full-report] PDF base64 preview (first 50 chars):', pdfBase64.substring(0, 50));
                 console.log('[full-report] PDF base64 length:', pdfBase64.length);
-                
+
                 // Validate that decoded PDF has correct header
                 try {
                     const pdfBuffer = Buffer.from(pdfBase64, 'base64');
@@ -1174,11 +1174,11 @@ async function getSupabaseClient() {
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseUrl = process.env.VITE_SUPABASE_URL;
         const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-        
+
         if (!supabaseUrl || !supabaseKey) {
             throw new Error('Supabase configuration missing');
         }
-        
+
         supabaseClient = createClient(supabaseUrl, supabaseKey);
     }
     return supabaseClient;
@@ -1189,7 +1189,7 @@ async function getSupabaseClient() {
  */
 async function processReportGeneration(userData, houseGridJson, consultationId) {
     const supabase = await getSupabaseClient();
-    
+
     try {
         // Check if report is already being processed or completed (idempotency)
         const { data: existing } = await supabase
@@ -1197,17 +1197,17 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
             .select('report_status, full_report_result')
             .eq('id', consultationId)
             .single();
-        
+
         if (existing?.report_status === 'processing') {
             console.log('[async-report] Report already processing, skipping duplicate job');
             return;
         }
-        
+
         if (existing?.report_status === 'completed') {
             console.log('[async-report] Report already completed');
             return;
         }
-        
+
         // Update status to processing
         await supabase
             .from('consultations')
@@ -1216,9 +1216,9 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 report_started_at: new Date().toISOString()
             })
             .eq('id', consultationId);
-        
+
         console.log('[async-report] Starting report generation for:', userData.email);
-        
+
         // Call Dify for full report
         const payload = {
             inputs: {
@@ -1236,15 +1236,15 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
             response_mode: 'streaming',
             user: userData.email
         };
-        
+
         const { fullAnswer, conversationId } = await postStreamingToDify(
-            '/chat-messages', 
-            payload, 
+            '/chat-messages',
+            payload,
             DIFY_API_KEY_REPORT
         );
-        
+
         console.log('[async-report] Dify response received, generating PDF...');
-        
+
         // Generate PDF
         let pdfBase64 = null;
         try {
@@ -1255,7 +1255,7 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
             console.error('[async-report] PDF generation failed:', pdfError);
             // Continue without PDF - user can still see markdown
         }
-        
+
         // Save completed report to Supabase
         await supabase
             .from('consultations')
@@ -1271,12 +1271,12 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 payment_completed: true
             })
             .eq('id', consultationId);
-            
+
         console.log('[async-report] Report generation completed for:', userData.email);
-        
+
     } catch (error) {
         console.error('[async-report] Report generation failed:', error);
-        
+
         // Update status to failed
         try {
             await supabase
@@ -1299,31 +1299,31 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
 app.post('/api/dify/full-report-async', async (req, res) => {
     try {
         const { userData, houseGridJson, consultationId } = req.body;
-        
+
         // Validate required fields
         if (!userData?.email || !userData?.birthDate || !houseGridJson) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
+
         if (!consultationId) {
             return res.status(400).json({ error: 'Missing consultationId' });
         }
-        
+
         console.log('[async-report] Starting async report generation for:', userData.email);
-        
+
         // Immediately return job started response
         res.json({
             status: 'processing',
             message: 'Report generation started',
             consultationId
         });
-        
+
         // Process in background (don't await)
         processReportGeneration(userData, houseGridJson, consultationId)
             .catch(err => {
                 console.error('[async-report] Background job failed:', err);
             });
-            
+
     } catch (error) {
         console.error('[async-report] Error starting job:', error);
         res.status(500).json({ error: error.message });
@@ -1336,31 +1336,31 @@ app.post('/api/dify/full-report-async', async (req, res) => {
 app.get('/api/dify/report-status/:consultationId', async (req, res) => {
     try {
         const { consultationId } = req.params;
-        
+
         const supabase = await getSupabaseClient();
-        
+
         const { data, error } = await supabase
             .from('consultations')
             .select('report_status, report_error, full_report_result, report_completed_at')
             .eq('id', consultationId)
             .single();
-            
+
         if (error) {
             console.error('[report-status] Supabase error:', error);
             throw error;
         }
-        
+
         if (!data) {
             return res.status(404).json({ error: 'Consultation not found' });
         }
-        
+
         res.json({
             status: data.report_status,
             error: data.report_error,
             report: data.full_report_result,
             completedAt: data.report_completed_at
         });
-        
+
     } catch (error) {
         console.error('[report-status] Error:', error);
         res.status(500).json({ error: error.message });
@@ -1391,6 +1391,120 @@ app.post('/api/pdf/generate', async (req, res) => {
         res.status(500).json({ error: error.message || 'Failed to generate PDF' });
     }
 });
+
+// ============================================================================
+// ASYNC REPORT GENERATION ENDPOINTS
+// ============================================================================
+
+// Trigger async report generation
+app.post('/api/dify/full-report-async', async (req, res) => {
+    try {
+        const { userData, houseGridJson, consultationId } = req.body;
+        if (!userData || !houseGridJson || !consultationId) {
+            return res.status(400).json({ error: 'Missing fields' });
+        }
+
+        console.log('[Async] Starting for:', consultationId);
+        res.json({ status: 'processing', consultationId });
+
+        // Background processing
+        processReportGeneration(userData, houseGridJson, consultationId).catch(err => {
+            console.error('[Async] Failed:', err);
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check report status
+app.get('/api/dify/report-status/:consultationId', async (req, res) => {
+    try {
+        const { consultationId } = req.params;
+
+        // Mock for temp IDs
+        if (consultationId.startsWith('temp_')) {
+            return res.json({
+                status: 'completed',
+                report: { report_content: 'Mock report', pdf_base64: null }
+            });
+        }
+
+        const supabase = await getSupabaseClient();
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('report_status, report_error, full_report_result, report_completed_at')
+            .eq('id', consultationId)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+
+        res.json({
+            status: data.report_status || 'pending',
+            error: data.report_error,
+            report: data.full_report_result,
+            completedAt: data.report_completed_at
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Background processing
+async function processReportGeneration(userData, houseGridJson, consultationId) {
+    try {
+        if (consultationId.startsWith('temp_')) {
+            console.log('[Background] Skipping temp ID');
+            return;
+        }
+
+        const supabase = await getSupabaseClient();
+        await supabase.from('consultations').update({
+            report_status: 'processing',
+            report_started_at: new Date().toISOString()
+        }).eq('id', consultationId);
+
+        const reportResponse = await postStreamingToDify(
+            DIFY_API_KEY_REPORT,
+            userData,
+            houseGridJson,
+            'full_report'
+        );
+
+        if (!reportResponse?.answer) {
+            throw new Error('No report content');
+        }
+
+        const pdfBase64 = await generatePDFFromMarkdown(reportResponse.answer);
+
+        await supabase.from('consultations').update({
+            report_status: 'completed',
+            report_completed_at: new Date().toISOString(),
+            full_report_result: {
+                report_content: reportResponse.answer,
+                pdf_base64: pdfBase64
+            },
+            report_conversation_id: reportResponse.conversation_id,
+            payment_completed: true
+        }).eq('id', consultationId);
+
+        console.log('[Background] Completed:', consultationId);
+    } catch (error) {
+        console.error('[Background] Failed:', error);
+        if (!consultationId.startsWith('temp_')) {
+            try {
+                const supabase = await getSupabaseClient();
+                await supabase.from('consultations').update({
+                    report_status: 'failed',
+                    report_error: error.message
+                }).eq('id', consultationId);
+            } catch (e) {
+                console.error('[Background] Update failed:', e);
+            }
+        }
+    }
+}
 
 /**
  * Download PDF endpoint
