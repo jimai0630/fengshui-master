@@ -13,10 +13,68 @@ type Props = {
  * 安全地解码 base64 PDF 字符串
  * 处理各种边界情况：data URL 前缀、空白字符、格式验证
  */
-const decodeBase64PDF = (base64String: string): Blob => {
+const decodeBase64PDF = (base64String: string | null | undefined | any): Blob => {
     try {
-        if (!base64String || typeof base64String !== 'string') {
-            throw new Error('Invalid input: base64String must be a non-empty string');
+        // 检查输入有效性
+        if (!base64String) {
+            throw new Error('PDF data is missing or null');
+        }
+
+        // 处理数组格式（可能来自 JSONB 序列化问题）
+        if (Array.isArray(base64String)) {
+            console.warn('PDF data is an array, converting to Uint8Array directly');
+            const byteArray = new Uint8Array(base64String);
+            
+            // 验证 PDF 文件头
+            if (byteArray.length < 4) {
+                throw new Error(`PDF data too short (${byteArray.length} bytes)`);
+            }
+            
+            const pdfHeader = String.fromCharCode(...byteArray.slice(0, 4));
+            if (pdfHeader !== '%PDF') {
+                throw new Error(`Invalid PDF header: "${pdfHeader}"`);
+            }
+            
+            return new Blob([byteArray], { type: 'application/pdf' });
+        }
+
+        if (typeof base64String !== 'string') {
+            throw new Error(`Invalid input type: expected string or array, got ${typeof base64String}`);
+        }
+
+        // 检查是否是 "null" 字符串（可能来自 JSON 序列化）
+        if (base64String === 'null' || base64String === 'undefined' || base64String.trim() === '') {
+            throw new Error('PDF data is null or empty');
+        }
+
+        // 检查是否是逗号分隔的数字字符串（可能来自数组的 toString()）
+        // 例如: "37,80,68,70,45,49,46,52,10,37,211,235,233,225,10,4"
+        if (/^\d+(\s*,\s*\d+)+$/.test(base64String.trim())) {
+            console.warn('PDF data appears to be a comma-separated number string, converting...');
+            try {
+                const numbers = base64String.split(',').map(n => parseInt(n.trim(), 10));
+                const byteArray = new Uint8Array(numbers);
+                
+                // 验证 PDF 文件头
+                if (byteArray.length < 4) {
+                    throw new Error(`PDF data too short (${byteArray.length} bytes)`);
+                }
+                
+                const pdfHeader = String.fromCharCode(...byteArray.slice(0, 4));
+                if (pdfHeader !== '%PDF') {
+                    throw new Error(`Invalid PDF header: "${pdfHeader}"`);
+                }
+                
+                console.log('Successfully converted number array to PDF', {
+                    size: byteArray.length,
+                    sizeKB: (byteArray.length / 1024).toFixed(2),
+                    header: pdfHeader
+                });
+                
+                return new Blob([byteArray], { type: 'application/pdf' });
+            } catch (convertError) {
+                throw new Error(`Failed to convert number array: ${convertError instanceof Error ? convertError.message : 'Unknown error'}`);
+            }
         }
 
         // 移除可能的 data URL 前缀
@@ -25,10 +83,18 @@ const decodeBase64PDF = (base64String: string): Blob => {
         // 移除所有空白字符（空格、换行符、制表符等）
         cleanBase64 = cleanBase64.replace(/\s/g, '');
 
+        // 检查最小长度（PDF 文件至少需要几百字节）
+        if (cleanBase64.length < 100) {
+            throw new Error(`PDF data too short (${cleanBase64.length} chars), likely invalid`);
+        }
+
         // 检查并移除无效字符（在验证之前）
         const invalidChars = cleanBase64.match(/[^A-Za-z0-9+/=]/);
         if (invalidChars) {
-            console.warn('Found invalid characters in base64, attempting to clean...');
+            console.warn('Found invalid characters in base64, attempting to clean...', {
+                invalidCharCount: invalidChars.length,
+                sample: invalidChars.slice(0, 10).join('')
+            });
             cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
         }
 
@@ -44,25 +110,65 @@ const decodeBase64PDF = (base64String: string): Blob => {
         }
 
         // 解码 base64
-        const byteCharacters = atob(cleanBase64);
+        let byteCharacters: string;
+        try {
+            byteCharacters = atob(cleanBase64);
+        } catch (decodeError) {
+            throw new Error(`Base64 decoding failed: ${decodeError instanceof Error ? decodeError.message : 'Unknown error'}`);
+        }
+
+        if (byteCharacters.length === 0) {
+            throw new Error('Decoded PDF data is empty');
+        }
+
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
 
-        // 验证 PDF 文件头
-        const pdfHeader = new Uint8Array(byteArray.slice(0, 4));
-        const pdfHeaderString = String.fromCharCode(...pdfHeader);
-        if (pdfHeaderString !== '%PDF') {
-            throw new Error('Invalid PDF file: file header does not match PDF format');
+        // 验证 PDF 文件头（前 4 个字节应该是 %PDF）
+        if (byteArray.length < 4) {
+            throw new Error(`PDF data too short (${byteArray.length} bytes), minimum 4 bytes required`);
         }
 
-        console.log('PDF file validated successfully, size:', byteArray.length, 'bytes');
+        const pdfHeader = new Uint8Array(byteArray.slice(0, 4));
+        const pdfHeaderString = String.fromCharCode(...pdfHeader);
+        
+        if (pdfHeaderString !== '%PDF') {
+            // 显示实际的文件头以便调试
+            const headerHex = Array.from(pdfHeader)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join(' ');
+            const headerChars = Array.from(pdfHeader)
+                .map(b => b >= 32 && b <= 126 ? String.fromCharCode(b) : '.')
+                .join('');
+            
+            console.error('Invalid PDF header:', {
+                expected: '%PDF',
+                actual: pdfHeaderString,
+                hex: headerHex,
+                chars: headerChars,
+                firstBytes: Array.from(byteArray.slice(0, 20))
+            });
+            
+            throw new Error(`Invalid PDF file: file header "${pdfHeaderString}" does not match PDF format "%PDF"`);
+        }
+
+        console.log('PDF file validated successfully', {
+            size: byteArray.length,
+            sizeKB: (byteArray.length / 1024).toFixed(2),
+            header: pdfHeaderString
+        });
 
         return new Blob([byteArray], { type: 'application/pdf' });
     } catch (error) {
-        console.error('Failed to decode base64 PDF:', error);
+        console.error('Failed to decode base64 PDF:', {
+            error: error instanceof Error ? error.message : String(error),
+            inputType: typeof base64String,
+            inputLength: base64String?.length,
+            inputPreview: base64String?.substring(0, 50)
+        });
         throw new Error(`PDF 解码失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 };
@@ -73,7 +179,12 @@ const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => 
 
     const handleDownload = async () => {
         if (!report.pdf_base64) {
-            console.error('No PDF data available');
+            console.error('No PDF data available', {
+                hasPdfBase64: !!report.pdf_base64,
+                pdfBase64Type: typeof report.pdf_base64,
+                pdfBase64Value: report.pdf_base64
+            });
+            alert('PDF 数据不可用，报告可能仍在生成中，请稍后重试');
             return;
         }
 
@@ -84,13 +195,18 @@ const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => 
             const a = document.createElement('a');
             a.href = url;
             a.download = `FengShui_Report_${userEmail}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            console.log('PDF downloaded successfully');
         } catch (e) {
             console.error('Download failed', e);
-            alert('PDF 下载失败，请稍后重试');
+            const errorMessage = e instanceof Error ? e.message : '未知错误';
+            alert(`PDF 下载失败: ${errorMessage}\n\n如果问题持续存在，请联系客服。`);
+        } finally {
+            setDownloading(false);
         }
-        setDownloading(false);
     };
 
     // Show processing state with progress bar

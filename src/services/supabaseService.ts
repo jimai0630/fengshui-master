@@ -8,11 +8,26 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
-    console.error('[Supabase] Not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud sync.');
+    console.warn('[Supabase] Not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud sync.');
+}
+
+// Validate URL format if configured
+if (isSupabaseConfigured && !supabaseUrl.startsWith('http://') && !supabaseUrl.startsWith('https://')) {
+    console.error('[Supabase] Invalid URL format. URL must start with http:// or https://');
 }
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-    ? createClient(supabaseUrl, supabaseAnonKey)
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+              persistSession: false,
+              autoRefreshToken: false
+          },
+          global: {
+              headers: {
+                  'x-client-info': 'fengshui-master'
+              }
+          }
+      })
     : null;
 
 // Database Types
@@ -143,7 +158,8 @@ export async function loadConsultationFromSupabase(
     floorPlansHash: string
 ): Promise<ConsultationRecord | null> {
     if (!supabase) {
-        throw new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+        console.warn('[Supabase] Client not configured, skipping load');
+        return null;
     }
 
     try {
@@ -162,7 +178,66 @@ export async function loadConsultationFromSupabase(
         if (error) throw error;
         return data;
     } catch (error) {
-        console.error('Failed to load consultation from Supabase:', error);
+        const errorMessage = error instanceof Error
+            ? error.message
+            : typeof error === 'object' && error !== null
+                ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+                : String(error);
+
+        const errorDetails = error && typeof error === 'object' && 'code' in error
+            ? {
+                code: (error as any).code,
+                message: (error as any).message,
+                details: (error as any).details,
+                hint: (error as any).hint
+            }
+            : null;
+
+        const isNetworkError = errorMessage.includes('Failed to fetch') ||
+                              errorMessage.includes('NetworkError') ||
+                              errorMessage.includes('Network request failed') ||
+                              errorMessage.includes('ERR_NAME_NOT_RESOLVED') ||
+                              errorMessage.includes('ERR_INTERNET_DISCONNECTED') ||
+                              errorMessage.includes('getaddrinfo ENOTFOUND') ||
+                              errorMessage.includes('TypeError: Failed to fetch');
+
+        if (isNetworkError) {
+            const isDnsError = errorMessage.includes('ERR_NAME_NOT_RESOLVED') ||
+                              errorMessage.includes('getaddrinfo ENOTFOUND');
+
+            if (isDnsError) {
+                console.warn('[Supabase] DNS resolution failed when loading consultation:', {
+                    error: errorMessage,
+                    supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'not configured',
+                    hasUrl: !!supabaseUrl,
+                    hasKey: !!supabaseAnonKey,
+                    suggestion: 'DNS resolution failed. Possible causes: 1) Network connection issue, 2) Supabase project paused/deleted, 3) DNS server problem, 4) Firewall blocking. The app will continue without cloud sync.'
+                });
+            } else {
+                console.warn('[Supabase] Network error when loading consultation:', {
+                    error: errorMessage,
+                    supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'not configured',
+                    hasUrl: !!supabaseUrl,
+                    hasKey: !!supabaseAnonKey,
+                    urlLength: supabaseUrl?.length || 0,
+                    keyLength: supabaseAnonKey?.length || 0,
+                    suggestion: 'This might be a CORS issue, network problem, or Supabase service unavailable. The app will continue without cloud sync.'
+                });
+            }
+        } else {
+            console.error('Failed to load consultation from Supabase:', {
+                error: errorMessage,
+                errorType: error?.constructor?.name || typeof error,
+                errorDetails,
+                queryParams: {
+                    email,
+                    birthDate,
+                    gender,
+                    houseType,
+                    floorPlansHash: floorPlansHash?.substring(0, 20) + '...'
+                }
+            });
+        }
         return null;
     }
 }
@@ -175,7 +250,14 @@ export async function getOrCreateConsultationId(
     birthDate: string,
     gender: string,
     houseType: string,
-    floorPlanFileIds: string[]
+    floorPlanFileIds: string[],
+    options?: {
+        layoutGridResult?: any;
+        layoutConversationId?: string;
+        energySummaryResult?: any;
+        energyConversationId?: string;
+        floorPlansData?: any[];
+    }
 ): Promise<string> {
     if (!supabase) {
         throw new Error('Supabase is not configured');
@@ -202,11 +284,45 @@ export async function getOrCreateConsultationId(
             return data.id;
         }
 
-        // If not found, this means the consultation hasn't been saved yet
-        // This shouldn't happen in normal flow, but return a placeholder
-        throw new Error('Consultation not found. Please complete the analysis first.');
+        // If not found, create a new consultation record
+        // This can happen if the user skipped saving the consultation state earlier
+        console.log('[Supabase] Consultation not found, creating new record...');
+        
+        // Use provided data or create minimal placeholders
+        // Note: Schema requires NOT NULL for these fields, so we need valid data
+        const layoutGridResult = options?.layoutGridResult || { grid: [], analysis: 'Pending analysis' };
+        const layoutConversationId = options?.layoutConversationId || '';
+        const energySummaryResult = options?.energySummaryResult || { scores: {}, summary: 'Pending analysis' };
+        const energyConversationId = options?.energyConversationId || '';
+        const floorPlansData = options?.floorPlansData || [];
+
+        const { data: newData, error: insertError } = await supabase
+            .from('consultations')
+            .insert({
+                email,
+                birth_date: birthDate,
+                gender,
+                house_type: houseType,
+                floor_plans_hash: floorPlansHash,
+                floor_plans_data: floorPlansData,
+                layout_grid_result: layoutGridResult,
+                layout_conversation_id: layoutConversationId,
+                energy_summary_result: energySummaryResult,
+                energy_conversation_id: energyConversationId,
+                payment_completed: false
+            })
+            .select('id')
+            .single();
+
+        if (insertError) {
+            console.error('[Supabase] Failed to create consultation:', insertError);
+            throw insertError;
+        }
+
+        console.log('[Supabase] Created new consultation:', newData.id);
+        return newData.id;
     } catch (error) {
-        console.error('Failed to get consultation ID:', error);
+        console.error('Failed to get or create consultation ID:', error);
         throw error;
     }
 }

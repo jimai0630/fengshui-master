@@ -37,7 +37,34 @@ async function getPuppeteer() {
     return { puppeteer, chromium };
 }
 
-dotenv.config({ path: join(__dirname, '.env') });
+// 加载环境变量
+// 1. 先尝试加载项目根目录的 .env（合并后的统一配置文件）
+const projectRoot = join(__dirname, '../..');
+const rootEnvPath = join(projectRoot, '.env');
+const backendEnvPath = join(__dirname, '.env');
+
+console.log('[Env] Loading environment variables...');
+console.log('[Env] Project root:', projectRoot);
+console.log('[Env] Root .env path:', rootEnvPath);
+console.log('[Env] Backend .env path:', backendEnvPath);
+
+// 加载项目根目录的 .env（优先级最高）
+const rootResult = dotenv.config({ path: rootEnvPath });
+if (rootResult.error && rootResult.error.code !== 'ENOENT') {
+    console.warn('[Env] Error loading root .env:', rootResult.error.message);
+} else if (!rootResult.error) {
+    console.log('[Env] Loaded root .env successfully');
+}
+
+// 然后尝试加载后端目录的 .env（向后兼容，如果存在）
+const backendResult = dotenv.config({ path: backendEnvPath });
+if (backendResult.error && backendResult.error.code !== 'ENOENT') {
+    console.warn('[Env] Error loading backend .env:', backendResult.error.message);
+} else if (!backendResult.error) {
+    console.log('[Env] Loaded backend .env successfully');
+}
+
+// 最后加载当前工作目录的 .env（默认行为，会覆盖前面的）
 dotenv.config();
 
 const app = express();
@@ -48,6 +75,17 @@ const DIFY_BASE_URL = process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1';
 const DIFY_API_KEY_LAYOUT = process.env.DIFY_API_KEY_LAYOUT || process.env.DIFY_API_KEY;
 const DIFY_API_KEY_REPORT = process.env.DIFY_API_KEY_REPORT || process.env.DIFY_API_KEY;
 const DEFAULT_USER_ID = process.env.DIFY_DEFAULT_USER || 'fengshui-user';
+
+// 调试日志：检查 Dify API Key 配置
+console.log('[Dify] Configuration check:', {
+    hasDifyBaseUrl: !!process.env.DIFY_BASE_URL,
+    hasDifyApiKeyLayout: !!DIFY_API_KEY_LAYOUT,
+    hasDifyApiKeyReport: !!DIFY_API_KEY_REPORT,
+    hasDifyApiKey: !!process.env.DIFY_API_KEY,
+    layoutKeyLength: DIFY_API_KEY_LAYOUT?.length || 0,
+    reportKeyLength: DIFY_API_KEY_REPORT?.length || 0,
+    defaultUserId: DEFAULT_USER_ID
+});
 
 if (!DIFY_API_KEY_LAYOUT && !DIFY_API_KEY_REPORT) {
     console.warn('[WARN] DIFY_API_KEY_LAYOUT or DIFY_API_KEY_REPORT is not set. API requests will fail.');
@@ -1186,125 +1224,31 @@ let supabaseClient = null;
 async function getSupabaseClient() {
     if (!supabaseClient) {
         const { createClient } = await import('@supabase/supabase-js');
-        const supabaseUrl = process.env.VITE_SUPABASE_URL;
-        const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+        // 后端应该使用不带 VITE_ 前缀的环境变量，或者同时支持两种
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+        // 添加调试日志
+        console.log('[Supabase] Configuration check:', {
+            hasSupabaseUrl: !!process.env.SUPABASE_URL,
+            hasViteSupabaseUrl: !!process.env.VITE_SUPABASE_URL,
+            hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+            hasViteSupabaseKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+            finalUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'not set',
+            finalKeyLength: supabaseKey?.length || 0
+        });
 
         if (!supabaseUrl || !supabaseKey) {
-            throw new Error('Supabase configuration missing');
+            const missingVars = [];
+            if (!supabaseUrl) missingVars.push('SUPABASE_URL or VITE_SUPABASE_URL');
+            if (!supabaseKey) missingVars.push('SUPABASE_ANON_KEY or VITE_SUPABASE_ANON_KEY');
+            throw new Error(`Supabase configuration missing. Please set ${missingVars.join(' and ')} environment variables.`);
         }
 
         supabaseClient = createClient(supabaseUrl, supabaseKey);
+        console.log('[Supabase] Client created successfully');
     }
     return supabaseClient;
-}
-
-/**
- * Background report generation function
- */
-async function processReportGeneration(userData, houseGridJson, consultationId) {
-    const supabase = await getSupabaseClient();
-
-    try {
-        // Check if report is already being processed or completed (idempotency)
-        const { data: existing } = await supabase
-            .from('consultations')
-            .select('report_status, full_report_result')
-            .eq('id', consultationId)
-            .single();
-
-        if (existing?.report_status === 'processing') {
-            console.log('[async-report] Report already processing, skipping duplicate job');
-            return;
-        }
-
-        if (existing?.report_status === 'completed') {
-            console.log('[async-report] Report already completed');
-            return;
-        }
-
-        // Update status to processing
-        await supabase
-            .from('consultations')
-            .update({
-                report_status: 'processing',
-                report_started_at: new Date().toISOString()
-            })
-            .eq('id', consultationId);
-
-        console.log('[async-report] Starting report generation for:', userData.email);
-
-        // Call Dify for full report
-        const payload = {
-            inputs: {
-                mode: 'full_report',
-                birth_date: userData.birthDate,
-                gender: userData.gender,
-                benming_star_no: userData.benmingStarNo,
-                benming_star_name: userData.benmingStarName,
-                house_type: userData.houseType || 'apartment',
-                floor_index: String(userData.floorIndex || '1'),
-                house_grid_json: houseGridJson,
-                language_mode: userData.languageMode || 'zh'
-            },
-            query: '请生成我的2026年完整风水报告。',
-            response_mode: 'streaming',
-            user: userData.email
-        };
-
-        const { fullAnswer, conversationId } = await postStreamingToDify(
-            '/chat-messages',
-            payload,
-            DIFY_API_KEY_REPORT
-        );
-
-        console.log('[async-report] Dify response received, generating PDF...');
-
-        // Generate PDF
-        let pdfBase64 = null;
-        try {
-            const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
-            pdfBase64 = pdfBuffer.toString('base64');
-            console.log('[async-report] PDF generated successfully');
-        } catch (pdfError) {
-            console.error('[async-report] PDF generation failed:', pdfError);
-            // Continue without PDF - user can still see markdown
-        }
-
-        // Save completed report to Supabase
-        await supabase
-            .from('consultations')
-            .update({
-                report_status: 'completed',
-                report_completed_at: new Date().toISOString(),
-                full_report_result: {
-                    report_content: fullAnswer,
-                    pdf_base64: pdfBase64,
-                    conversation_id: conversationId
-                },
-                report_conversation_id: conversationId,
-                payment_completed: true
-            })
-            .eq('id', consultationId);
-
-        console.log('[async-report] Report generation completed for:', userData.email);
-
-    } catch (error) {
-        console.error('[async-report] Report generation failed:', error);
-
-        // Update status to failed
-        try {
-            await supabase
-                .from('consultations')
-                .update({
-                    report_status: 'failed',
-                    report_error: error.message,
-                    report_completed_at: new Date().toISOString()
-                })
-                .eq('id', consultationId);
-        } catch (updateError) {
-            console.error('[async-report] Failed to update error status:', updateError);
-        }
-    }
 }
 
 /**
@@ -1347,40 +1291,6 @@ app.post('/api/dify/full-report-async', async (req, res) => {
 /**
  * Check report status
  */
-app.get('/api/dify/report-status/:consultationId', async (req, res) => {
-    try {
-        const { consultationId } = req.params;
-
-        const supabase = await getSupabaseClient();
-
-        const { data, error } = await supabase
-            .from('consultations')
-            .select('report_status, report_error, full_report_result, report_completed_at')
-            .eq('id', consultationId)
-            .single();
-
-        if (error) {
-            console.error('[report-status] Supabase error:', error);
-            throw error;
-        }
-
-        if (!data) {
-            return res.status(404).json({ error: 'Consultation not found' });
-        }
-
-        res.json({
-            status: data.report_status,
-            error: data.report_error,
-            report: data.full_report_result,
-            completedAt: data.report_completed_at
-        });
-
-    } catch (error) {
-        console.error('[report-status] Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 /**
  * Generate PDF from markdown content endpoint
  */
@@ -1435,15 +1345,45 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
     try {
         const { consultationId } = req.params;
 
-        // Mock for temp IDs
-        if (consultationId.startsWith('temp_')) {
+        // 检查是否是临时 ID（包含 "temp" 或格式为 temp_xxx）
+        // consultationId 格式可能是: temp_email_uuid_timestamp 或 temp_test@qq.com_uuid_timestamp
+        // 或者是真实的 UUID: e28c02c8-31cc-4366-8e33-4f5d4d5121ad
+        const isTempId = consultationId.startsWith('temp_') || 
+                        (consultationId.startsWith('temp') && !consultationId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) ||
+                        consultationId.includes('temp_');
+        
+        console.log('[report-status] Checking consultation ID:', {
+            consultationId,
+            isTempId,
+            length: consultationId.length,
+            isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(consultationId)
+        });
+        
+        if (isTempId) {
+            console.log('[report-status] Temp ID detected, returning pending status:', consultationId);
             return res.json({
-                status: 'completed',
-                report: { report_content: 'Mock report', pdf_base64: null }
+                status: 'pending',
+                error: null,
+                report: null,
+                completedAt: null
             });
         }
 
-        const supabase = await getSupabaseClient();
+        // 尝试获取 Supabase 客户端，如果失败则返回友好错误
+        let supabase;
+        try {
+            supabase = await getSupabaseClient();
+        } catch (supabaseError) {
+            console.warn('[report-status] Supabase not configured:', supabaseError.message);
+            return res.status(503).json({ 
+                error: 'Supabase not configured',
+                status: 'pending',
+                message: 'Database service is not available. Please configure Supabase environment variables.'
+            });
+        }
+
+        console.log('[report-status] Querying consultation:', consultationId);
+        
         const { data, error } = await supabase
             .from('consultations')
             .select('report_status, report_error, full_report_result, report_completed_at')
@@ -1451,8 +1391,51 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
             .single();
 
         if (error) {
-            return res.status(404).json({ error: 'Not found' });
+            // 记录详细的错误信息
+            console.error('[report-status] Supabase query error:', {
+                consultationId,
+                errorCode: error.code,
+                errorMessage: error.message,
+                errorDetails: error.details,
+                errorHint: error.hint
+            });
+            
+            // 如果是 "not found" 错误，返回 404
+            if (error.code === 'PGRST116' || error.message?.includes('No rows') || error.message?.includes('not found')) {
+                console.log('[report-status] Consultation not found:', consultationId);
+                return res.status(404).json({ 
+                    error: 'Consultation not found',
+                    consultationId 
+                });
+            }
+            
+            // 如果是无效的 UUID 格式错误
+            if (error.code === '22P02' || error.message?.includes('invalid input syntax for type uuid')) {
+                console.warn('[report-status] Invalid UUID format:', consultationId);
+                return res.status(400).json({ 
+                    error: 'Invalid consultation ID format',
+                    consultationId 
+                });
+            }
+            
+            // 其他数据库错误
+            return res.status(500).json({ 
+                error: 'Database query failed',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+                code: error.code
+            });
         }
+
+        if (!data) {
+            console.log('[report-status] No data returned for consultation:', consultationId);
+            return res.status(404).json({ error: 'Consultation not found' });
+        }
+        
+        console.log('[report-status] Found consultation:', {
+            consultationId,
+            status: data.report_status,
+            hasReport: !!data.full_report_result
+        });
 
         res.json({
             status: data.report_status || 'pending',
@@ -1461,60 +1444,176 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
             completedAt: data.report_completed_at
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[report-status] Error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error' });
     }
 });
 
 // Background processing
 async function processReportGeneration(userData, houseGridJson, consultationId) {
+    const supabase = await getSupabaseClient();
+
     try {
         if (consultationId.startsWith('temp_')) {
             console.log('[Background] Skipping temp ID');
             return;
         }
 
-        const supabase = await getSupabaseClient();
-        await supabase.from('consultations').update({
-            report_status: 'processing',
-            report_started_at: new Date().toISOString()
-        }).eq('id', consultationId);
+        // Check if report is already being processed or completed (idempotency)
+        const { data: existing } = await supabase
+            .from('consultations')
+            .select('report_status, full_report_result')
+            .eq('id', consultationId)
+            .single();
 
-        const reportResponse = await postStreamingToDify(
-            DIFY_API_KEY_REPORT,
-            userData,
-            houseGridJson,
-            'full_report'
+        if (existing?.report_status === 'processing') {
+            console.log('[Background] Report already processing, skipping duplicate job');
+            return;
+        }
+
+        if (existing?.report_status === 'completed') {
+            console.log('[Background] Report already completed');
+            return;
+        }
+
+        // Update status to processing
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'processing',
+                report_started_at: new Date().toISOString()
+            })
+            .eq('id', consultationId);
+
+        console.log('[Background] Starting report generation for:', userData.email);
+
+        // Call Dify for full report
+        const payload = {
+            inputs: {
+                mode: 'full_report',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo,
+                benming_star_name: userData.benmingStarName,
+                house_type: userData.houseType || 'apartment',
+                floor_index: String(userData.floorIndex || '1'),
+                house_grid_json: houseGridJson,
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请生成我的2026年完整风水报告。',
+            response_mode: 'streaming',
+            user: userData.email
+        };
+
+        const { fullAnswer, conversationId } = await postStreamingToDify(
+            '/chat-messages',
+            payload,
+            DIFY_API_KEY_REPORT
         );
 
-        if (!reportResponse?.answer) {
+        console.log('[Background] Dify response received, generating PDF...');
+
+        if (!fullAnswer || fullAnswer.trim().length === 0) {
             throw new Error('No report content');
         }
 
-        const pdfBase64 = await generatePDFFromMarkdown(reportResponse.answer);
+        // Generate PDF
+        let pdfBase64 = null;
+        try {
+            const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
+            
+            // Validate PDF buffer
+            if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) {
+                throw new Error('PDF generation returned invalid buffer');
+            }
+            
+            // Validate PDF header
+            const pdfHeader = pdfBuffer.slice(0, 4).toString('ascii');
+            if (pdfHeader !== '%PDF') {
+                throw new Error(`Invalid PDF header: ${pdfHeader}`);
+            }
+            
+            pdfBase64 = pdfBuffer.toString('base64');
+            
+            // Validate base64 encoding
+            if (!pdfBase64 || pdfBase64.length < 100) {
+                throw new Error('PDF base64 encoding is too short or empty');
+            }
+            
+            console.log('[Background] PDF generated successfully', {
+                size: pdfBuffer.length,
+                sizeKB: (pdfBuffer.length / 1024).toFixed(2),
+                base64Length: pdfBase64.length,
+                header: pdfHeader
+            });
+        } catch (pdfError) {
+            console.error('[Background] PDF generation failed:', {
+                error: pdfError.message,
+                stack: pdfError.stack
+            });
+            // Continue without PDF - user can still see markdown
+            // pdfBase64 remains null, which is valid
+        }
 
-        await supabase.from('consultations').update({
-            report_status: 'completed',
-            report_completed_at: new Date().toISOString(),
-            full_report_result: {
-                report_content: reportResponse.answer,
-                pdf_base64: pdfBase64
-            },
-            report_conversation_id: reportResponse.conversation_id,
-            payment_completed: true
-        }).eq('id', consultationId);
+        // Save completed report to Supabase
+        // Only include pdf_base64 if it's valid (not null)
+        // Ensure pdf_base64 is a string, not a Buffer or array
+        const fullReportResult = {
+            report_content: fullAnswer,
+            conversation_id: conversationId,
+            ...(pdfBase64 && typeof pdfBase64 === 'string' && { 
+                pdf_base64: pdfBase64 // Ensure it's a string, not an array or Buffer
+            })
+        };
+        
+        // Validate the structure before saving
+        if (fullReportResult.pdf_base64) {
+            // Double-check it's a valid base64 string
+            if (typeof fullReportResult.pdf_base64 !== 'string') {
+                console.error('[Background] pdf_base64 is not a string:', typeof fullReportResult.pdf_base64);
+                delete fullReportResult.pdf_base64; // Remove invalid data
+            } else if (fullReportResult.pdf_base64.length < 100) {
+                console.warn('[Background] pdf_base64 is too short, removing');
+                delete fullReportResult.pdf_base64;
+            }
+        }
+        
+        console.log('[Background] Saving report result:', {
+            hasPdf: !!fullReportResult.pdf_base64,
+            pdfType: typeof fullReportResult.pdf_base64,
+            pdfLength: fullReportResult.pdf_base64?.length || 0,
+            reportContentLength: fullReportResult.report_content?.length || 0
+        });
+        
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'completed',
+                report_completed_at: new Date().toISOString(),
+                full_report_result: fullReportResult,
+                report_conversation_id: conversationId,
+                payment_completed: true
+            })
+            .eq('id', consultationId);
 
-        console.log('[Background] Completed:', consultationId);
+        console.log('[Background] Report generation completed for:', userData.email);
+
     } catch (error) {
-        console.error('[Background] Failed:', error);
+        console.error('[Background] Report generation failed:', error);
+
+        // Update status to failed
         if (!consultationId.startsWith('temp_')) {
             try {
-                const supabase = await getSupabaseClient();
-                await supabase.from('consultations').update({
-                    report_status: 'failed',
-                    report_error: error.message
-                }).eq('id', consultationId);
-            } catch (e) {
-                console.error('[Background] Update failed:', e);
+                await supabase
+                    .from('consultations')
+                    .update({
+                        report_status: 'failed',
+                        report_error: error.message,
+                        report_completed_at: new Date().toISOString()
+                    })
+                    .eq('id', consultationId);
+            } catch (updateError) {
+                console.error('[Background] Failed to update error status:', updateError);
             }
         }
     }

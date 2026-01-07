@@ -196,15 +196,25 @@ const ConsultationPage: React.FC = () => {
         window.scrollTo(0, 0);
     }, []);
 
+    // Ref to track if we're currently loading state to prevent infinite loops
+    const isLoadingStateRef = useRef(false);
+    const hasLoadedStateRef = useRef(false);
+
     // Load saved state if user has email
     useEffect(() => {
         const loadSavedState = async () => {
+            // Prevent infinite loops: don't load if already loading or already loaded
+            if (isLoadingStateRef.current || hasLoadedStateRef.current) {
+                return;
+            }
+
             // Check for reset flag from homepage navigation
             const shouldReset = (location.state as any)?.reset;
 
             if (shouldReset) {
                 console.log('Resetting consultation state due to fresh navigation');
                 // Don't load saved state when user explicitly wants to start fresh
+                hasLoadedStateRef.current = true; // Mark as loaded to prevent retry
                 return;
             }
 
@@ -213,6 +223,7 @@ const ConsultationPage: React.FC = () => {
                 const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
 
                 if (floorPlanFileIds.length > 0) {
+                    isLoadingStateRef.current = true;
                     try {
                         const savedState = await loadConsultationState(
                             userData.email,
@@ -230,6 +241,8 @@ const ConsultationPage: React.FC = () => {
                             // If user is starting fresh, don't restore old state
                             if (isFreshStart) {
                                 console.log('Fresh start detected, skipping state restoration');
+                                hasLoadedStateRef.current = true; // Mark as loaded to prevent retry
+                                isLoadingStateRef.current = false;
                                 return;
                             }
 
@@ -239,12 +252,16 @@ const ConsultationPage: React.FC = () => {
                                 // This might be a page refresh, but we should still check if user wants to continue
                                 // For now, don't auto-restore if on initial step
                                 console.log('On initial step, not restoring state to allow fresh start');
+                                hasLoadedStateRef.current = true; // Mark as loaded to prevent retry
+                                isLoadingStateRef.current = false;
                                 return;
                             }
 
                             // Validate savedState has required fields before using
                             if (!savedState.currentStep || !savedState.userData || !savedState.floorPlans || !savedState.houseType) {
                                 console.warn('Invalid saved state, skipping restoration');
+                                hasLoadedStateRef.current = true; // Mark as loaded to prevent retry
+                                isLoadingStateRef.current = false;
                                 return;
                             }
 
@@ -263,6 +280,9 @@ const ConsultationPage: React.FC = () => {
                                 step = 'floor-plan-upload';
                             }
 
+                            // Mark as loaded BEFORE updating state to prevent re-triggering
+                            hasLoadedStateRef.current = true;
+                            
                             setCurrentStep(step);
                             setUserData(savedState.userData || {});
                             setFloorPlans(Array.isArray(savedState.floorPlans) ? savedState.floorPlans : []);
@@ -282,6 +302,9 @@ const ConsultationPage: React.FC = () => {
                                     setProcessingStage('analyzing_layout');
                                 }
                             }
+                        } else {
+                            // No saved state found, mark as loaded to prevent retry
+                            hasLoadedStateRef.current = true;
                         }
                     } catch (error) {
                         // Handle Supabase errors gracefully
@@ -293,6 +316,11 @@ const ConsultationPage: React.FC = () => {
                             setError(t('consultation.errors.supabaseNotConfigured', 'Supabase is not configured. Please contact support.'));
                         }
                         // For other errors (network issues, etc.), silently fail and let user start fresh
+                        // Mark as loaded to prevent infinite retry loops
+                        hasLoadedStateRef.current = true;
+                    } finally {
+                        // Always reset loading flag
+                        isLoadingStateRef.current = false;
                     }
                 }
             }
@@ -547,7 +575,14 @@ const ConsultationPage: React.FC = () => {
                     userData.birthDate!,
                     userData.gender!,
                     houseType,
-                    floorPlanFileIds
+                    floorPlanFileIds,
+                    {
+                        layoutGridResult: layoutGridResult || undefined,
+                        layoutConversationId: conversationId || '',
+                        energySummaryResult: energySummaryResult || undefined,
+                        energyConversationId: conversationId || '',
+                        floorPlansData: floorPlans
+                    }
                 );
             } catch (error) {
                 // Fallback: Generate temporary ID if Supabase is not configured
@@ -560,6 +595,10 @@ const ConsultationPage: React.FC = () => {
             // Save consultation ID to userData and localStorage for recovery
             setUserData(prev => ({ ...prev, consultationId }));
             localStorage.setItem(`consultation_id_${userData.email}`, consultationId);
+
+            // Mark state as loaded to prevent reloading after payment success
+            // This prevents the useEffect from reloading state when userData changes
+            hasLoadedStateRef.current = true;
 
             // 4. Start async report generation
             await fetch('/api/dify/full-report-async', {
@@ -617,6 +656,32 @@ const ConsultationPage: React.FC = () => {
 
             try {
                 const response = await fetch(`/api/dify/report-status/${consultationId}`);
+                
+                // Check if response is OK (200-299)
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    
+                    // If Supabase is not configured (503), stop polling and show error
+                    if (response.status === 503) {
+                        clearInterval(interval);
+                        clearInterval(progressInterval);
+                        setReportPollingInterval(null);
+                        console.warn('[Polling] Supabase not configured, stopping polling');
+                        setError(errorData.message || 'Database service is not available. Please configure Supabase environment variables.');
+                        return;
+                    }
+                    
+                    // For other errors, log and continue polling (might be temporary)
+                    console.warn('[Polling] Server error:', response.status, errorData);
+                    if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        clearInterval(progressInterval);
+                        setReportPollingInterval(null);
+                        setError(errorData.error || t('consultation.errors.reportTimeout'));
+                    }
+                    return;
+                }
+                
                 const data = await response.json();
 
                 if (data.status === 'completed') {
@@ -659,7 +724,13 @@ const ConsultationPage: React.FC = () => {
 
             } catch (err) {
                 console.error('[Polling] Error:', err);
-                // Continue polling on error
+                // Continue polling on network errors (might be temporary)
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    clearInterval(progressInterval);
+                    setReportPollingInterval(null);
+                    setError(t('consultation.errors.reportTimeout'));
+                }
             }
         }, 5000); // Poll every 5 seconds
 
