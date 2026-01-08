@@ -4,7 +4,7 @@
  * This bypasses Vercel serverless limitations
  */
 
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { marked } from 'marked';
 
