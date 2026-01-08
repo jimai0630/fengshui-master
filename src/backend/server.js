@@ -538,12 +538,34 @@ async function uploadFileToDify(fileBuffer, { filename, contentType }, userId, a
  */
 app.post('/api/dify/upload', upload.single('file'), async (req, res) => {
     try {
+        // 检查API Key是否配置
+        if (!DIFY_API_KEY_LAYOUT) {
+            console.error('[upload] DIFY_API_KEY_LAYOUT is not configured');
+            console.error('[upload] Environment debug:', {
+                hasDifyApiKey: !!process.env.DIFY_API_KEY,
+                hasDifyApiKeyLayout: !!process.env.DIFY_API_KEY_LAYOUT,
+                envKeys: Object.keys(process.env).filter(k => k.includes('DIFY'))
+            });
+            return res.status(500).json({
+                error: 'Dify API key not configured. Please set DIFY_API_KEY or DIFY_API_KEY_LAYOUT in Vercel Environment Variables.'
+            });
+        }
+
         if (!req.file) {
             return res.status(400).json({ error: 'Missing file field.' });
         }
 
         const userId =
             (req.body?.user && req.body.user.toString().trim()) || DEFAULT_USER_ID;
+
+        console.log('[upload] Starting upload:', {
+            filename: req.file.originalname,
+            size: req.file.size,
+            mime: req.file.mimetype,
+            userId,
+            hasApiKey: !!DIFY_API_KEY_LAYOUT,
+            apiKeyLength: DIFY_API_KEY_LAYOUT?.length || 0
+        });
 
         const data = await uploadFileToDify(
             req.file.buffer,
@@ -563,7 +585,8 @@ app.post('/api/dify/upload', upload.single('file'), async (req, res) => {
         });
         res.json(data);
     } catch (error) {
-        console.error('[upload] error:', error);
+        console.error('[upload] error:', error.message);
+        console.error('[upload] error stack:', error.stack);
         res.status(500).json({ error: error.message || 'Upload failed' });
     }
 });
