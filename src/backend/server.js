@@ -1252,6 +1252,117 @@ async function getSupabaseClient() {
 }
 
 /**
+ * Background report generation function
+ */
+async function processReportGeneration(userData, houseGridJson, consultationId) {
+    console.log('[Background] Starting report generation for:', consultationId);
+
+    // Check if it's a temporary ID (Supabase not configured)
+    if (consultationId.startsWith('temp_')) {
+        console.log('[Background] Skipping temp ID (Supabase not configured):', consultationId);
+        return;
+    }
+
+    try {
+        const supabase = await getSupabaseClient();
+
+        // Update status to processing
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'processing',
+                report_started_at: new Date().toISOString()
+            })
+            .eq('id', consultationId);
+
+        console.log('[Background] Calling Dify for full report...');
+
+        // Parse houseGridJson if it's a string
+        let gridData;
+        try {
+            gridData = typeof houseGridJson === 'string' ? JSON.parse(houseGridJson) : houseGridJson;
+        } catch (e) {
+            throw new Error(`Invalid houseGridJson format: ${e.message}`);
+        }
+
+        // Call Dify for full report
+        const payload = {
+            inputs: {
+                mode: 'full_report',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo || '',
+                benming_star_name: userData.benmingStarName || '',
+                house_type: userData.houseType || 'apartment',
+                floor_index: String(userData.floorIndex || '1'),
+                house_grid_json: JSON.stringify(gridData),
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请生成我的2026年完整风水报告。',
+            response_mode: 'streaming',
+            user: userData.email
+        };
+
+        const { fullAnswer } = await postStreamingToDify(
+            '/chat-messages',
+            payload,
+            DIFY_API_KEY_REPORT
+        );
+
+        if (!fullAnswer || fullAnswer.trim().length === 0) {
+            throw new Error('Dify returned empty report content');
+        }
+
+        console.log('[Background] Dify response received, report length:', fullAnswer.length);
+
+        // Generate PDF (optional, may fail on Vercel)
+        let pdfBase64 = null;
+        try {
+            const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
+            pdfBase64 = pdfBuffer.toString('base64');
+            console.log('[Background] PDF generated successfully');
+        } catch (pdfError) {
+            console.warn('[Background] PDF generation failed (expected on Vercel):', pdfError.message);
+            // Continue without PDF - client will generate it
+        }
+
+        // Save completed report to Supabase
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'completed',
+                report_completed_at: new Date().toISOString(),
+                full_report_result: {
+                    report_content: fullAnswer,
+                    pdf_base64: pdfBase64,
+                    conversation_id: ''
+                }
+            })
+            .eq('id', consultationId);
+
+        console.log('[Background] Report generation completed for:', consultationId);
+    } catch (error) {
+        console.error('[Background] Report generation failed:', error);
+
+        // Update error status in Supabase
+        try {
+            const supabase = await getSupabaseClient();
+            await supabase
+                .from('consultations')
+                .update({
+                    report_status: 'failed',
+                    report_error: error.message,
+                    report_completed_at: new Date().toISOString()
+                })
+                .eq('id', consultationId);
+        } catch (updateError) {
+            console.error('[Background] Failed to update error status:', updateError);
+        }
+    }
+}
+
+
+/**
  * Start async report generation
  */
 app.post('/api/dify/full-report-async', async (req, res) => {
@@ -1317,28 +1428,8 @@ app.post('/api/pdf/generate', async (req, res) => {
 });
 
 // ============================================================================
-// ASYNC REPORT GENERATION ENDPOINTS
+// ASYNC REPORT STATUS CHECK
 // ============================================================================
-
-// Trigger async report generation
-app.post('/api/dify/full-report-async', async (req, res) => {
-    try {
-        const { userData, houseGridJson, consultationId } = req.body;
-        if (!userData || !houseGridJson || !consultationId) {
-            return res.status(400).json({ error: 'Missing fields' });
-        }
-
-        console.log('[Async] Starting for:', consultationId);
-        res.json({ status: 'processing', consultationId });
-
-        // Background processing
-        processReportGeneration(userData, houseGridJson, consultationId).catch(err => {
-            console.error('[Async] Failed:', err);
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // Check report status
 app.get('/api/dify/report-status/:consultationId', async (req, res) => {
@@ -1348,17 +1439,17 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
         // 检查是否是临时 ID（包含 "temp" 或格式为 temp_xxx）
         // consultationId 格式可能是: temp_email_uuid_timestamp 或 temp_test@qq.com_uuid_timestamp
         // 或者是真实的 UUID: e28c02c8-31cc-4366-8e33-4f5d4d5121ad
-        const isTempId = consultationId.startsWith('temp_') || 
-                        (consultationId.startsWith('temp') && !consultationId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) ||
-                        consultationId.includes('temp_');
-        
+        const isTempId = consultationId.startsWith('temp_') ||
+            (consultationId.startsWith('temp') && !consultationId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) ||
+            consultationId.includes('temp_');
+
         console.log('[report-status] Checking consultation ID:', {
             consultationId,
             isTempId,
             length: consultationId.length,
             isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(consultationId)
         });
-        
+
         if (isTempId) {
             console.log('[report-status] Temp ID detected, returning pending status:', consultationId);
             return res.json({
@@ -1375,7 +1466,7 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
             supabase = await getSupabaseClient();
         } catch (supabaseError) {
             console.warn('[report-status] Supabase not configured:', supabaseError.message);
-            return res.status(503).json({ 
+            return res.status(503).json({
                 error: 'Supabase not configured',
                 status: 'pending',
                 message: 'Database service is not available. Please configure Supabase environment variables.'
@@ -1383,7 +1474,7 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
         }
 
         console.log('[report-status] Querying consultation:', consultationId);
-        
+
         const { data, error } = await supabase
             .from('consultations')
             .select('report_status, report_error, full_report_result, report_completed_at')
@@ -1399,27 +1490,27 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
                 errorDetails: error.details,
                 errorHint: error.hint
             });
-            
+
             // 如果是 "not found" 错误，返回 404
             if (error.code === 'PGRST116' || error.message?.includes('No rows') || error.message?.includes('not found')) {
                 console.log('[report-status] Consultation not found:', consultationId);
-                return res.status(404).json({ 
+                return res.status(404).json({
                     error: 'Consultation not found',
-                    consultationId 
+                    consultationId
                 });
             }
-            
+
             // 如果是无效的 UUID 格式错误
             if (error.code === '22P02' || error.message?.includes('invalid input syntax for type uuid')) {
                 console.warn('[report-status] Invalid UUID format:', consultationId);
-                return res.status(400).json({ 
+                return res.status(400).json({
                     error: 'Invalid consultation ID format',
-                    consultationId 
+                    consultationId
                 });
             }
-            
+
             // 其他数据库错误
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Database query failed',
                 details: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 code: error.code
@@ -1430,7 +1521,7 @@ app.get('/api/dify/report-status/:consultationId', async (req, res) => {
             console.log('[report-status] No data returned for consultation:', consultationId);
             return res.status(404).json({ error: 'Consultation not found' });
         }
-        
+
         console.log('[report-status] Found consultation:', {
             consultationId,
             status: data.report_status,
@@ -1521,25 +1612,25 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
         let pdfBase64 = null;
         try {
             const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
-            
+
             // Validate PDF buffer
             if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) {
                 throw new Error('PDF generation returned invalid buffer');
             }
-            
+
             // Validate PDF header
             const pdfHeader = pdfBuffer.slice(0, 4).toString('ascii');
             if (pdfHeader !== '%PDF') {
                 throw new Error(`Invalid PDF header: ${pdfHeader}`);
             }
-            
+
             pdfBase64 = pdfBuffer.toString('base64');
-            
+
             // Validate base64 encoding
             if (!pdfBase64 || pdfBase64.length < 100) {
                 throw new Error('PDF base64 encoding is too short or empty');
             }
-            
+
             console.log('[Background] PDF generated successfully', {
                 size: pdfBuffer.length,
                 sizeKB: (pdfBuffer.length / 1024).toFixed(2),
@@ -1561,11 +1652,11 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
         const fullReportResult = {
             report_content: fullAnswer,
             conversation_id: conversationId,
-            ...(pdfBase64 && typeof pdfBase64 === 'string' && { 
+            ...(pdfBase64 && typeof pdfBase64 === 'string' && {
                 pdf_base64: pdfBase64 // Ensure it's a string, not an array or Buffer
             })
         };
-        
+
         // Validate the structure before saving
         if (fullReportResult.pdf_base64) {
             // Double-check it's a valid base64 string
@@ -1577,14 +1668,14 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 delete fullReportResult.pdf_base64;
             }
         }
-        
+
         console.log('[Background] Saving report result:', {
             hasPdf: !!fullReportResult.pdf_base64,
             pdfType: typeof fullReportResult.pdf_base64,
             pdfLength: fullReportResult.pdf_base64?.length || 0,
             reportContentLength: fullReportResult.report_content?.length || 0
         });
-        
+
         await supabase
             .from('consultations')
             .update({
