@@ -776,6 +776,11 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields.' });
         }
 
+        // Dynamic query based on language mode
+        const query = userData.languageMode === 'en'
+            ? 'Please analyze my home feng shui energy and provide scores and brief summaries for the five dimensions.'
+            : '请分析我的家居风水能量，给出五个维度的评分和简短概述。';
+
         const payload = {
             inputs: {
                 mode: 'energy_summary',
@@ -787,9 +792,9 @@ app.post('/api/dify/energy-summary', async (req, res) => {
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
                 room_photos_desc: roomPhotosDesc || '',
-                language_mode: userData.languageMode || 'zh'
+                language_mode: userData.languageMode || 'en'
             },
-            query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
+            query: query,
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             user: userData?.email || DEFAULT_USER_ID
