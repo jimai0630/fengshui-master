@@ -73,7 +73,7 @@ export async function callLayoutGrid(
     userData: UserCompleteData,
     floorPlanFileIds: string[], // 支持多个文件ID
     houseType: string,
-    languageMode: 'zh' | 'en' | 'mix' = 'zh'
+    languageMode: 'zh' | 'en' | 'mix' = 'en'
 ): Promise<{ result: LayoutGridResponse; conversationId: string }> {
     const response = await fetch(`${BACKEND_BASE_URL}/dify/layout-grid`, {
         method: 'POST',
@@ -153,7 +153,7 @@ export async function callEnergySummary(
     if (!response.ok) {
         const contentType = response.headers.get('content-type');
         let errorMessage = `Energy summary failed with status ${response.status}`;
-        
+
         if (contentType && contentType.includes('application/json')) {
             try {
                 const errorData = await response.json();
@@ -172,7 +172,7 @@ export async function callEnergySummary(
                 errorMessage = errorText || errorMessage;
             }
         }
-        
+
         throw new Error(errorMessage);
     }
 
@@ -259,7 +259,7 @@ export async function callFullReport(
     if (!response.ok) {
         const contentType = response.headers.get('content-type');
         let errorMessage = `Full report failed with status ${response.status}`;
-        
+
         if (contentType && contentType.includes('application/json')) {
             try {
                 const errorData = await response.json();
@@ -278,7 +278,7 @@ export async function callFullReport(
                 errorMessage = errorText || errorMessage;
             }
         }
-        
+
         throw new Error(errorMessage);
     }
 

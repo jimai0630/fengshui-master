@@ -1490,6 +1490,11 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
 
         console.log('[Background] Starting report generation for:', userData.email);
 
+        // Dynamic query based on language mode
+        const query = userData.languageMode === 'en'
+            ? 'Please generate my complete 2026 Feng Shui report.'
+            : '请生成我的2026年完整风水报告。';
+
         // Call Dify for full report
         const payload = {
             inputs: {
@@ -1501,9 +1506,9 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 house_type: userData.houseType || 'apartment',
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
-                language_mode: userData.languageMode || 'zh'
+                language_mode: userData.languageMode || 'en'
             },
-            query: '请生成我的2026年完整风水报告。',
+            query: query,
             response_mode: 'streaming',
             user: userData.email
         };

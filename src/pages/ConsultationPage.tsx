@@ -282,7 +282,7 @@ const ConsultationPage: React.FC = () => {
 
                             // Mark as loaded BEFORE updating state to prevent re-triggering
                             hasLoadedStateRef.current = true;
-                            
+
                             setCurrentStep(step);
                             setUserData(savedState.userData || {});
                             setFloorPlans(Array.isArray(savedState.floorPlans) ? savedState.floorPlans : []);
@@ -467,7 +467,7 @@ const ConsultationPage: React.FC = () => {
                 gender: newUserData.gender as '男' | '女',
                 floorIndex: 1,
                 houseType: selectedHouseType,
-                languageMode: i18n.language === 'zh' ? 'zh' : 'en'
+                languageMode: i18n.language.startsWith('zh') ? 'zh' : 'en'
             };
 
             // 4. Call Agent 1
@@ -476,7 +476,7 @@ const ConsultationPage: React.FC = () => {
                 completeUserData,
                 fileIds,
                 selectedHouseType,
-                i18n.language === 'zh' ? 'zh' : 'en'
+                i18n.language.startsWith('zh') ? 'zh' : 'en'
             );
 
             setConversationId(newConvId);
@@ -605,7 +605,10 @@ const ConsultationPage: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userData: userData as UserCompleteData,
+                    userData: {
+                        ...userData,
+                        languageMode: i18n.language.startsWith('zh') ? 'zh' : 'en'
+                    } as UserCompleteData,
                     houseGridJson: JSON.stringify(layoutGridResult),
                     consultationId
                 })
@@ -656,11 +659,11 @@ const ConsultationPage: React.FC = () => {
 
             try {
                 const response = await fetch(`/api/dify/report-status/${consultationId}`);
-                
+
                 // Check if response is OK (200-299)
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                    
+
                     // If Supabase is not configured (503), stop polling and show error
                     if (response.status === 503) {
                         clearInterval(interval);
@@ -670,7 +673,7 @@ const ConsultationPage: React.FC = () => {
                         setError(errorData.message || 'Database service is not available. Please configure Supabase environment variables.');
                         return;
                     }
-                    
+
                     // For other errors, log and continue polling (might be temporary)
                     console.warn('[Polling] Server error:', response.status, errorData);
                     if (attempts >= maxAttempts) {
@@ -681,7 +684,7 @@ const ConsultationPage: React.FC = () => {
                     }
                     return;
                 }
-                
+
                 const data = await response.json();
 
                 if (data.status === 'completed') {
