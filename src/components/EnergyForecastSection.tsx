@@ -92,25 +92,25 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
                                 <Star className="w-8 h-8 text-amber-500 fill-amber-500 animate-pulse" />
                             </div>
                             <h4 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
-                                解锁您的完整运势报告
+                                {t('unlockReport.title')}
                             </h4>
                             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                                基于您个人的能量与居家风水<br />
-                                <span className="text-amber-600 font-medium">定制化生成专属能量调整方案</span>
+                                {t('unlockReport.subtitle')}<br />
+                                <span className="text-amber-600 font-medium">{t('unlockReport.customized')}</span>
                             </p>
 
                             <ul className="mt-6 text-left space-y-3 pl-4 border-l-2 border-amber-100 dark:border-amber-900/50">
                                 <li className="text-gray-600 dark:text-gray-300 text-sm flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                                    用最小的改动来引导能量顺畅流转
+                                    {t('unlockReport.feature1')}
                                 </li>
                                 <li className="text-gray-600 dark:text-gray-300 text-sm flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                                    一对一量身定制，而非通用法则
+                                    {t('unlockReport.feature2')}
                                 </li>
                                 <li className="text-gray-600 dark:text-gray-300 text-sm flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                                    吉运增强方案，祝您万事顺遂
+                                    {t('unlockReport.feature3')}
                                 </li>
                             </ul>
                         </div>
@@ -123,7 +123,7 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
                             {processing ? (
                                 <>
                                     <Loader2 className="w-6 h-6 animate-spin" />
-                                    生成中...
+                                    {t('unlockReport.processing')}
                                 </>
                             ) : (
                                 <>
@@ -133,7 +133,7 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
                             )}
                         </button>
                         <p className="text-center text-xs text-gray-400 mt-4 relative z-10">
-                            一次性购买 · 永久有效
+                            {t('unlockReport.oneTimePurchase')}
                         </p>
                     </div>
                 </div>

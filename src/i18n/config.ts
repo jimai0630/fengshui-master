@@ -141,6 +141,28 @@ i18n
                             invalidFile: "Invalid file"
                         }
                     },
+                    loading: {
+                        messages: [
+                            "Consulting the Feng Shui master's ancient texts...",
+                            "Calculating 2026 Flying Star positions...",
+                            "The master is sensing your home's energy flow...",
+                            "Analyzing auspicious and inauspicious directions...",
+                            "The master is writing your fortune guidance...",
+                            "Energy field analysis in progress, please wait...",
+                            "Seeking remedies for you..."
+                        ],
+                        subtitle: "AI model is performing deep calculations, estimated 1-2 minutes..."
+                    },
+                    unlockReport: {
+                        title: "Unlock Your Complete Fortune Report",
+                        subtitle: "Based on your personal energy and home Feng Shui",
+                        customized: "Customized energy adjustment plan",
+                        feature1: "Minimal changes to guide smooth energy flow",
+                        feature2: "One-on-one customization, not generic rules",
+                        feature3: "Auspicious enhancement plan, wishing you success",
+                        processing: "Generating...",
+                        oneTimePurchase: "One-time purchase · Lifetime access"
+                    },
                     energyForecast: {
                         title: "Your Energy Forecast",
                         subtitle: "A glimpse into your personal energy shifts for the coming years.",
@@ -445,6 +467,28 @@ i18n
                             maxFloors: "最多只能上传 3 层户型图。",
                             invalidFile: "文件无效，请重新选择。"
                         }
+                    },
+                    loading: {
+                        messages: [
+                            "正在调阅风水大师的秘籍宝典...",
+                            "正在排盘2026年流年飞星...",
+                            "大师正在感知您家的气场流动...",
+                            "正在推演家中吉凶方位...",
+                            "大师正在为您撰写运势寄语...",
+                            "能量场分析中，请稍候...",
+                            "正在为您寻找化解之道..."
+                        ],
+                        subtitle: "大模型正在深度计算，预计需要 1-2 分钟..."
+                    },
+                    unlockReport: {
+                        title: "解锁您的完整运势报告",
+                        subtitle: "基于您个人的能量与居家风水",
+                        customized: "定制化生成专属能量调整方案",
+                        feature1: "用最小的改动来引导能量顺畅流转",
+                        feature2: "一对一量身定制，而非通用法则",
+                        feature3: "吉运增强方案，祝您万事顺遂",
+                        processing: "生成中...",
+                        oneTimePurchase: "一次性购买 · 永久有效"
                     },
                     energyForecast: {
                         title: "您的能量预测",

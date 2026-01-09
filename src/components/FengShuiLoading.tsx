@@ -1,17 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const FengShuiLoading = () => {
+    const { t } = useTranslation();
     const [messageIndex, setMessageIndex] = useState(0);
-    const messages = [
-        "正在调阅风水大师的秘籍宝典...",
-        "正在排盘2026年流年飞星...",
-        "大师正在感知您家的气场流动...",
-        "正在推演家中吉凶方位...",
-        "大师正在为您撰写运势寄语...",
-        "能量场分析中，请稍候...",
-        "正在为您寻找化解之道..."
-    ];
+    const messages = t('loading.messages', { returnObjects: true }) as string[];
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -19,7 +13,7 @@ const FengShuiLoading = () => {
         }, 6000); // Change message every 6 seconds
 
         return () => clearInterval(interval);
-    }, []);
+    }, [messages.length]);
 
     // 9-Star Positions (Lo Shu Grid style) - Scaled Up
     const stars = [
@@ -144,7 +138,7 @@ const FengShuiLoading = () => {
                 </motion.div>
 
                 <p className="text-gray-500 dark:text-gray-400 text-sm font-medium animate-pulse">
-                    大模型正在深度计算，预计需要 1-2 分钟...
+                    {t('loading.subtitle')}
                 </p>
 
                 {/* Progress Indicator */}
