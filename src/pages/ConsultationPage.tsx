@@ -17,7 +17,7 @@ import {
     updateConsultationState
 } from '../services/consultationStateService';
 import { confirmPayment } from '../services/stripeService';
-import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId } from '../services/supabaseService';
+import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId, supabase } from '../services/supabaseService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
 
 // Types
@@ -191,6 +191,10 @@ const ConsultationPage: React.FC = () => {
     // State for payment modal
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+    // State for payment tracking (moved to later in flow)
+    const [hasPaid, setHasPaid] = useState(false);
+    const [consultationId, setConsultationId] = useState<string>('');
+
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -291,6 +295,22 @@ const ConsultationPage: React.FC = () => {
                             setFullReportResult(savedState.fullReportResult || null);
                             setConversationId(savedState.conversationId || '');
                             setHouseType(savedState.houseType);
+
+                            // Restore consultationId and payment status
+                            if (savedState.consultationId) {
+                                setConsultationId(savedState.consultationId);
+
+                                // Check localStorage for payment status first (faster)
+                                const localPaymentStatus = localStorage.getItem(`payment_status_${savedState.consultationId}`);
+                                if (localPaymentStatus === 'paid') {
+                                    setHasPaid(true);
+                                    console.log('[StateRestore] Payment status restored from localStorage');
+                                } else if (savedState.paymentCompleted) {
+                                    // Fallback to savedState
+                                    setHasPaid(true);
+                                    console.log('[StateRestore] Payment status restored from savedState');
+                                }
+                            }
 
                             if (step === 'processing') {
                                 if (savedState.layoutGridResult) {
@@ -535,42 +555,19 @@ const ConsultationPage: React.FC = () => {
         setShowPaymentModal(false);
     };
 
-    // Handler: Payment success (ASYNC VERSION)
-    const handlePaymentSuccess = async (paymentIntentId: string) => {
+    // Handler: Generate report WITHOUT payment (triggered from energy result page)
+    const handleGenerateReportWithoutPayment = async () => {
         setError(null);
 
         try {
             setIsLoading(true);
 
-            // 1. Confirm payment on backend
-            const paymentResponse = await confirmPayment({
-                paymentIntentId,
-                consultationId: undefined,
-            });
-
-            // 2. Save payment record
-            if (paymentResponse.paymentIntent) {
-                const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
-                const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
-
-                await savePaymentRecord({
-                    payment_intent_id: paymentIntentId,
-                    amount: paymentResponse.paymentIntent.amount,
-                    currency: paymentResponse.paymentIntent.currency,
-                    status: paymentResponse.paymentIntent.status as any,
-                    metadata: {
-                        email: userData.email || '',
-                        floor_plans_hash: floorPlansHash,
-                    },
-                });
-            }
-
-            // 3. Get consultation ID (with fallback for when Supabase is not configured)
+            // 1. Get or create consultation ID
             const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
-            let consultationId: string;
+            let newConsultationId: string;
 
             try {
-                consultationId = await getOrCreateConsultationId(
+                newConsultationId = await getOrCreateConsultationId(
                     userData.email!,
                     userData.birthDate!,
                     userData.gender!,
@@ -586,21 +583,21 @@ const ConsultationPage: React.FC = () => {
                 );
             } catch (error) {
                 // Fallback: Generate temporary ID if Supabase is not configured
-                console.warn('[Payment] Failed to get consultation ID from Supabase, using temporary ID:', error);
+                console.warn('[Report] Failed to get consultation ID from Supabase, using temporary ID:', error);
                 const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
-                consultationId = `temp_${userData.email}_${floorPlansHash}_${Date.now()}`;
-                console.log('[Payment] Using temporary consultation ID:', consultationId);
+                newConsultationId = `temp_${userData.email}_${floorPlansHash}_${Date.now()}`;
+                console.log('[Report] Using temporary consultation ID:', newConsultationId);
             }
 
-            // Save consultation ID to userData and localStorage for recovery
-            setUserData(prev => ({ ...prev, consultationId }));
-            localStorage.setItem(`consultation_id_${userData.email}`, consultationId);
+            // 2. Save consultation ID
+            setConsultationId(newConsultationId);
+            setUserData(prev => ({ ...prev, consultationId: newConsultationId }));
+            localStorage.setItem(`consultation_id_${userData.email}`, newConsultationId);
 
-            // Mark state as loaded to prevent reloading after payment success
-            // This prevents the useEffect from reloading state when userData changes
+            // Mark state as loaded to prevent reloading
             hasLoadedStateRef.current = true;
 
-            // 4. Start async report generation
+            // 3. Start async report generation (NO PAYMENT REQUIRED)
             await fetch('/api/dify/full-report-async', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -610,13 +607,13 @@ const ConsultationPage: React.FC = () => {
                         languageMode: i18n.language.startsWith('zh') ? 'zh' : 'en'
                     } as UserCompleteData,
                     houseGridJson: JSON.stringify(layoutGridResult),
-                    consultationId
+                    consultationId: newConsultationId
                 })
             });
 
-            console.log('[Payment] Async report generation started');
+            console.log('[Report] Async report generation started (payment deferred to download)');
 
-            // 5. Move to report page with processing state
+            // 4. Move to report page with processing state
             setCurrentStep('report');
             setFullReportResult({
                 report_content: '',
@@ -625,8 +622,76 @@ const ConsultationPage: React.FC = () => {
                 status: 'processing'
             } as FullReportResponse);
 
-            // 6. Start polling for completion
-            startReportPolling(consultationId);
+            // 5. Start polling for completion
+            startReportPolling(newConsultationId);
+
+        } catch (err) {
+            console.error('Report generation error:', err);
+            setError(t('consultation.errors.reportGenerationError'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Handler: Payment success (NOW TRIGGERED FROM DOWNLOAD BUTTON)
+    // Only handles payment confirmation, then triggers PDF download
+    const handlePaymentSuccess = async (paymentIntentId: string) => {
+        setError(null);
+
+        try {
+            setIsLoading(true);
+
+            // 1. Confirm payment on backend
+            const paymentResponse = await confirmPayment({
+                paymentIntentId,
+                consultationId: consultationId || undefined,
+            });
+
+            // 2. Save payment record
+            if (paymentResponse.paymentIntent) {
+                const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+                const floorPlansHash = generateFloorPlansHash(floorPlanFileIds);
+
+                await savePaymentRecord({
+                    payment_intent_id: paymentIntentId,
+                    amount: paymentResponse.paymentIntent.amount,
+                    currency: paymentResponse.paymentIntent.currency,
+                    status: paymentResponse.paymentIntent.status as any,
+                    metadata: {
+                        email: userData.email || '',
+                        floor_plans_hash: floorPlansHash,
+                        consultation_id: consultationId,
+                    },
+                });
+            }
+
+            // 3. Update payment status in Supabase (for recovery on refresh)
+            if (consultationId && !consultationId.startsWith('temp_') && supabase) {
+                try {
+                    await supabase
+                        .from('consultations')
+                        .update({
+                            payment_status: 'paid',
+                            payment_intent_id: paymentIntentId,
+                            paid_at: new Date().toISOString()
+                        })
+                        .eq('id', consultationId);
+                    console.log('[Payment] Updated payment status in Supabase');
+                } catch (dbError) {
+                    console.warn('[Payment] Failed to update payment status in Supabase:', dbError);
+                }
+            }
+
+            // 4. Mark as paid
+            setHasPaid(true);
+            localStorage.setItem(`payment_status_${consultationId}`, 'paid');
+
+            console.log('[Payment] Payment confirmed, PDF download will be triggered');
+
+            // 5. Close payment modal
+            setShowPaymentModal(false);
+
+            // Note: PDF download will be handled by ReportSection when hasPaid becomes true
 
         } catch (err) {
             console.error('Payment processing error:', err);
@@ -929,32 +994,36 @@ const ConsultationPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Step 3: Energy Result with Payment Modal */}
+                    {/* Step 3: Energy Result - Generate Report WITHOUT Payment */}
                     {currentStep === 'energy-result' && energySummaryResult && (
                         <div>
                             <EnergyForecastSection
                                 energyData={energySummaryResult}
-                                onGenerateReport={handleProceedToPayment}
+                                onGenerateReport={handleGenerateReportWithoutPayment}
+                            />
+                        </div>
+                    )}
+
+
+                    {/* Step 5: Report with Payment for Download */}
+                    {currentStep === 'report' && fullReportResult && (
+                        <>
+                            <ReportSection
+                                report={fullReportResult}
+                                userEmail={userData.email!}
+                                progress={reportProgress}
+                                hasPaid={hasPaid}
+                                onInitiatePayment={handleProceedToPayment}
                             />
 
-                            {/* Payment Modal - triggered by showPaymentModal state */}
+                            {/* Payment Modal - now triggered from ReportSection download button */}
                             <PaymentSection
                                 reportPrice={REPORT_PRICE}
                                 onPaymentSuccess={handlePaymentSuccess}
                                 triggerOpen={showPaymentModal}
                                 onModalClose={handleClosePaymentModal}
                             />
-                        </div>
-                    )}
-
-
-                    {/* Step 5: Report */}
-                    {currentStep === 'report' && fullReportResult && (
-                        <ReportSection
-                            report={fullReportResult}
-                            userEmail={userData.email!}
-                            progress={reportProgress}
-                        />
+                        </>
                     )}
                 </div>
 

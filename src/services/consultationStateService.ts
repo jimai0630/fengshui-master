@@ -22,6 +22,7 @@ export interface ConsultationState {
     fullReportResult?: any;
     conversationId?: string;
     paymentCompleted?: boolean;
+    consultationId?: string;  // For payment and state recovery
 }
 
 /**
@@ -152,6 +153,7 @@ function mapRecordToState(record: ConsultationRecord): ConsultationState {
         energySummaryResult: record.energy_summary_result,
         fullReportResult: record.full_report_result,
         conversationId: record.energy_conversation_id || record.layout_conversation_id,
-        paymentCompleted: record.payment_completed
+        paymentCompleted: record.payment_completed,
+        consultationId: record.id  // Include consultation ID for payment recovery
     };
 }

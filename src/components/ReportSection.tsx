@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Download, CheckCircle, AlertCircle, Lock } from 'lucide-react';
 import type { FullReportResponse } from '../types/dify';
 import { generatePDFWithProgress } from '../utils/clientPdfGenerator';
 
@@ -8,17 +8,26 @@ type Props = {
     report: FullReportResponse;
     userEmail: string;
     progress?: number; // 0-100
+    hasPaid: boolean;  // Whether user has paid
+    onInitiatePayment: () => void;  // Trigger payment modal
 };
 
-const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => {
+const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0, hasPaid, onInitiatePayment }) => {
     const { t } = useTranslation();
     const [downloading, setDownloading] = React.useState(false);
     const [pdfProgress, setPdfProgress] = React.useState(0);
+    const hasTriggeredAutoDownload = React.useRef(false);
 
     // Client-side PDF generation (works on Vercel free tier)
     const handleDownload = async () => {
+        // If not paid, trigger payment instead of download
+        if (!hasPaid) {
+            onInitiatePayment();
+            return;
+        }
+
         if (!report.report_content) {
-            alert('报告内容不可用，请稍后重试');
+            alert(t('consultation.report.contentUnavailable') || '报告内容不可用，请稍后重试');
             return;
         }
 
@@ -44,6 +53,18 @@ const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => 
             setPdfProgress(0);
         }
     };
+
+    // Auto-trigger download after payment success
+    React.useEffect(() => {
+        if (hasPaid && report.report_content && !hasTriggeredAutoDownload.current) {
+            hasTriggeredAutoDownload.current = true;
+            console.log('[ReportSection] Payment confirmed, auto-triggering PDF download');
+            // Small delay to ensure UI updates first
+            setTimeout(() => {
+                handleDownload();
+            }, 500);
+        }
+    }, [hasPaid, report.report_content]);
 
     // Show processing state with progress bar
     if (!report.report_content || report.status === 'processing') {
@@ -170,7 +191,7 @@ const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => 
                     </p>
                 </div>
 
-                {/* Download Button (Enabled) - Uses client-side PDF generation */}
+                {/* Download Button - Shows different state based on payment */}
                 <button
                     onClick={handleDownload}
                     disabled={downloading}
@@ -179,12 +200,17 @@ const ReportSection: React.FC<Props> = ({ report, userEmail, progress = 0 }) => 
                     {downloading ? (
                         <>
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            {pdfProgress > 0 ? `生成PDF中... ${pdfProgress}%` : t('consultation.processing')}
+                            {pdfProgress > 0 ? `${t('unlockReport.processing')} ${pdfProgress}%` : t('consultation.processing')}
                         </>
-                    ) : (
+                    ) : hasPaid ? (
                         <>
                             <Download className="w-5 h-5" />
                             {t('consultation.report.downloadNow')}
+                        </>
+                    ) : (
+                        <>
+                            <Lock className="w-5 h-5" />
+                            {t('unlockReport.unlockDownload')}
                         </>
                     )}
                 </button>

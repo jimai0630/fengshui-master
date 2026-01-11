@@ -161,7 +161,8 @@ i18n
                         feature2: "One-on-one customization, not generic rules",
                         feature3: "Auspicious enhancement plan, wishing you success",
                         processing: "Generating...",
-                        oneTimePurchase: "One-time purchase · Lifetime access"
+                        oneTimePurchase: "One-time purchase · Lifetime access",
+                        unlockDownload: "Unlock & Download PDF"
                     },
                     energyForecast: {
                         title: "Your Energy Forecast",
@@ -488,7 +489,8 @@ i18n
                         feature2: "一对一量身定制，而非通用法则",
                         feature3: "吉运增强方案，祝您万事顺遂",
                         processing: "生成中...",
-                        oneTimePurchase: "一次性购买 · 永久有效"
+                        oneTimePurchase: "一次性购买 · 永久有效",
+                        unlockDownload: "解锁并下载报告"
                     },
                     energyForecast: {
                         title: "您的能量预测",

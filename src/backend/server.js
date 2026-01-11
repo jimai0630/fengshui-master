@@ -776,11 +776,6 @@ app.post('/api/dify/energy-summary', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields.' });
         }
 
-        // Dynamic query based on language mode
-        const query = userData.languageMode === 'en'
-            ? 'Please analyze my home feng shui energy and provide scores and brief summaries for the five dimensions.'
-            : '请分析我的家居风水能量，给出五个维度的评分和简短概述。';
-
         const payload = {
             inputs: {
                 mode: 'energy_summary',
@@ -792,9 +787,9 @@ app.post('/api/dify/energy-summary', async (req, res) => {
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
                 room_photos_desc: roomPhotosDesc || '',
-                language_mode: userData.languageMode || 'en'
+                language_mode: userData.languageMode || 'zh'
             },
-            query: query,
+            query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             user: userData?.email || DEFAULT_USER_ID
@@ -1280,6 +1275,117 @@ async function getSupabaseClient() {
 }
 
 /**
+ * Background report generation function
+ */
+async function processReportGeneration(userData, houseGridJson, consultationId) {
+    console.log('[Background] Starting report generation for:', consultationId);
+
+    // Check if it's a temporary ID (Supabase not configured)
+    if (consultationId.startsWith('temp_')) {
+        console.log('[Background] Skipping temp ID (Supabase not configured):', consultationId);
+        return;
+    }
+
+    try {
+        const supabase = await getSupabaseClient();
+
+        // Update status to processing
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'processing',
+                report_started_at: new Date().toISOString()
+            })
+            .eq('id', consultationId);
+
+        console.log('[Background] Calling Dify for full report...');
+
+        // Parse houseGridJson if it's a string
+        let gridData;
+        try {
+            gridData = typeof houseGridJson === 'string' ? JSON.parse(houseGridJson) : houseGridJson;
+        } catch (e) {
+            throw new Error(`Invalid houseGridJson format: ${e.message}`);
+        }
+
+        // Call Dify for full report
+        const payload = {
+            inputs: {
+                mode: 'full_report',
+                birth_date: userData.birthDate,
+                gender: userData.gender,
+                benming_star_no: userData.benmingStarNo || '',
+                benming_star_name: userData.benmingStarName || '',
+                house_type: userData.houseType || 'apartment',
+                floor_index: String(userData.floorIndex || '1'),
+                house_grid_json: JSON.stringify(gridData),
+                language_mode: userData.languageMode || 'zh'
+            },
+            query: '请生成我的2026年完整风水报告。',
+            response_mode: 'streaming',
+            user: userData.email
+        };
+
+        const { fullAnswer } = await postStreamingToDify(
+            '/chat-messages',
+            payload,
+            DIFY_API_KEY_REPORT
+        );
+
+        if (!fullAnswer || fullAnswer.trim().length === 0) {
+            throw new Error('Dify returned empty report content');
+        }
+
+        console.log('[Background] Dify response received, report length:', fullAnswer.length);
+
+        // Generate PDF (optional, may fail on Vercel)
+        let pdfBase64 = null;
+        try {
+            const pdfBuffer = await generatePDFFromMarkdown(fullAnswer);
+            pdfBase64 = pdfBuffer.toString('base64');
+            console.log('[Background] PDF generated successfully');
+        } catch (pdfError) {
+            console.warn('[Background] PDF generation failed (expected on Vercel):', pdfError.message);
+            // Continue without PDF - client will generate it
+        }
+
+        // Save completed report to Supabase
+        await supabase
+            .from('consultations')
+            .update({
+                report_status: 'completed',
+                report_completed_at: new Date().toISOString(),
+                full_report_result: {
+                    report_content: fullAnswer,
+                    pdf_base64: pdfBase64,
+                    conversation_id: ''
+                }
+            })
+            .eq('id', consultationId);
+
+        console.log('[Background] Report generation completed for:', consultationId);
+    } catch (error) {
+        console.error('[Background] Report generation failed:', error);
+
+        // Update error status in Supabase
+        try {
+            const supabase = await getSupabaseClient();
+            await supabase
+                .from('consultations')
+                .update({
+                    report_status: 'failed',
+                    report_error: error.message,
+                    report_completed_at: new Date().toISOString()
+                })
+                .eq('id', consultationId);
+        } catch (updateError) {
+            console.error('[Background] Failed to update error status:', updateError);
+        }
+    }
+}
+
+
+/**
  * Start async report generation
  */
 app.post('/api/dify/full-report-async', async (req, res) => {
@@ -1495,11 +1601,6 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
 
         console.log('[Background] Starting report generation for:', userData.email);
 
-        // Dynamic query based on language mode
-        const query = userData.languageMode === 'en'
-            ? 'Please generate my complete 2026 Feng Shui report.'
-            : '请生成我的2026年完整风水报告。';
-
         // Call Dify for full report
         const payload = {
             inputs: {
@@ -1511,9 +1612,9 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 house_type: userData.houseType || 'apartment',
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
-                language_mode: userData.languageMode || 'en'
+                language_mode: userData.languageMode || 'zh'
             },
-            query: query,
+            query: '请生成我的2026年完整风水报告。',
             response_mode: 'streaming',
             user: userData.email
         };
