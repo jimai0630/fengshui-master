@@ -695,7 +695,9 @@ app.post('/api/dify/layout-grid', async (req, res) => {
                 house_type: userData.houseType || 'apartment',
                 language_mode: userData.languageMode || 'zh'
             },
-            query: '请分析这个户型图，将其划分为九宫格，并识别每个宫位的房间。',
+            query: userData.languageMode === 'en'
+                ? 'Please analyze this floor plan, divide it into a 9-grid, and identify the room in each palace.'
+                : '请分析这个户型图，将其划分为九宫格，并识别每个宫位的房间。',
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             // 使用与上传一致的 user（通常是邮箱），确保 Dify 可以访问对应的已上传文件
