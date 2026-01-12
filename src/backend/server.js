@@ -1323,7 +1323,7 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 house_type: userData.houseType || 'apartment',
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: JSON.stringify(gridData),
-                language_mode: userData.languageMode || 'zh'
+                language_mode: userData.languageMode || 'en'
             },
             query: userData.languageMode === 'en'
                 ? 'Generate my comprehensive 2026 Feng Shui report.'
