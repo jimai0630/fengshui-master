@@ -787,9 +787,11 @@ app.post('/api/dify/energy-summary', async (req, res) => {
                 floor_index: String(userData.floorIndex || '1'),
                 house_grid_json: houseGridJson,
                 room_photos_desc: roomPhotosDesc || '',
-                language_mode: userData.languageMode || 'zh'
+                language_mode: userData.languageMode || 'en'
             },
-            query: '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
+            query: userData.languageMode === 'en'
+                ? 'Please analyze my home feng shui energy and provide scores and brief summaries for the five dimensions.'
+                : '请分析我的家居风水能量，给出五个维度的评分和简短概述。',
             response_mode: 'streaming',
             conversation_id: userData.conversationId || '',
             user: userData?.email || DEFAULT_USER_ID
@@ -1321,7 +1323,9 @@ async function processReportGeneration(userData, houseGridJson, consultationId) 
                 house_grid_json: JSON.stringify(gridData),
                 language_mode: userData.languageMode || 'zh'
             },
-            query: '请生成我的2026年完整风水报告。',
+            query: userData.languageMode === 'en'
+                ? 'Generate my comprehensive 2026 Feng Shui report.'
+                : '请生成我的2026年完整风水报告。',
             response_mode: 'streaming',
             user: userData.email
         };

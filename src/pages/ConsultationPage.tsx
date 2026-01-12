@@ -421,7 +421,7 @@ const ConsultationPage: React.FC = () => {
                 conversationId: '', // Always start a fresh conversation for Agent 2 (different Dify App)
                 benmingStarNo: starNo,
                 benmingStarName: starName,
-                languageMode: i18n.language === 'zh' ? 'zh' : 'en'
+                languageMode: i18n.language.startsWith('zh') ? 'zh' : 'en'
             };
 
             setUserData(completeUserData);
