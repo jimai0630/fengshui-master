@@ -334,7 +334,8 @@ i18n
                             before: "Before Adjustment",
                             after: "After Adjustment"
                         }
-                    }
+                    },
+                    promoBanner: "If you adjust according to our complete Feng Shui report, your overall energy for the new year will increase by"
                 }
             },
             zh: {
@@ -658,7 +659,8 @@ i18n
                             before: "调整前",
                             after: "调整后"
                         }
-                    }
+                    },
+                    promoBanner: "如果按照我们完整的风水报告来调整，将使您在新年里的能量整体提升"
                 }
             }
         },

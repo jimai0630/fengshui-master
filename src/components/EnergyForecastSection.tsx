@@ -65,9 +65,9 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
 
                     {/* Improvement Summary */}
                     <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 text-center border border-amber-100 dark:border-amber-900/30">
-                        <p className="text-gray-700 dark:text-gray-300 font-medium">
-                            如果按照我们完整的风水报告来调整，将使您在新年里的能量整体提升
-                            <span className="text-2xl font-bold text-amber-600 dark:text-amber-500 mx-1">
+                        <p className="text-amber-800 dark:text-amber-200 text-lg font-medium">
+                            {t('promoBanner')}
+                            <span className="text-amber-600 dark:text-amber-400 font-bold text-2xl ml-2">
                                 {(() => {
                                     const totalBefore = dimensions.reduce((acc, dim) => acc + energyData.scores_before[dim], 0);
                                     const totalAfter = dimensions.reduce((acc, dim) => acc + energyData.scores_after[dim], 0);
@@ -137,8 +137,8 @@ const EnergyForecastSection: React.FC<Props> = ({ energyData, onGenerateReport }
                         </p>
                     </div>
                 </div>
-            </div>
-        </section>
+            </div >
+        </section >
     );
 };
 

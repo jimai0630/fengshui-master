@@ -18,7 +18,10 @@ type Props = {
     }>;
 };
 
+import { useTranslation } from 'react-i18next';
+
 const EnergyRadarChart: React.FC<Props> = ({ data }) => {
+    const { t } = useTranslation();
     return (
         <div style={{ width: '100%', height: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -32,7 +35,7 @@ const EnergyRadarChart: React.FC<Props> = ({ data }) => {
 
                     {/* Before - Gray/Subtle */}
                     <Radar
-                        name="调整前"
+                        name={t('common.before') || "Before"}
                         dataKey="A"
                         stroke="#9ca3af"
                         strokeWidth={2}
@@ -42,7 +45,7 @@ const EnergyRadarChart: React.FC<Props> = ({ data }) => {
 
                     {/* After - Warm/Vibrant */}
                     <Radar
-                        name="调整后"
+                        name={t('common.after') || "After"}
                         dataKey="B"
                         stroke="#f59e0b" // Amber-500
                         strokeWidth={3}

@@ -11,7 +11,10 @@ type Props = {
     icons: Record<string, React.ReactNode>;
 };
 
+import { useTranslation } from 'react-i18next';
+
 const EnergyPentagonAnalysis: React.FC<Props> = ({ energyData, dimensions, icons }) => {
+    const { t } = useTranslation();
     const [activeDim, setActiveDim] = useState<DimensionKey>(dimensions[0]);
     const [isPaused, setIsPaused] = useState(false);
 
@@ -186,11 +189,11 @@ const EnergyPentagonAnalysis: React.FC<Props> = ({ energyData, dimensions, icons
                         <svg width="32" height="2" className="opacity-60">
                             <line x1="0" y1="1" x2="32" y2="1" stroke="#9ca3af" strokeWidth="2" strokeDasharray="4 2" />
                         </svg>
-                        <span className="text-gray-500 dark:text-gray-400">调整前</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('common.before')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-8 h-[2.5px] bg-amber-500"></div>
-                        <span className="text-amber-600 dark:text-amber-400">调整后</span>
+                        <span className="text-amber-600 dark:text-amber-400">{t('common.after')}</span>
                     </div>
                 </div>
             </div>
