@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+
 // Components
 import FloorPlanUploadSection from '../components/FloorPlanUploadSection';
 import ProcessingSection from '../components/ProcessingSection';
@@ -598,9 +600,14 @@ const ConsultationPage: React.FC = () => {
             hasLoadedStateRef.current = true;
 
             // 3. Start async report generation (NO PAYMENT REQUIRED)
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (API_KEY) {
+                headers['X-API-Key'] = API_KEY;
+            }
+
             await fetch('/api/dify/full-report-async', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     userData: {
                         ...userData,
@@ -723,7 +730,14 @@ const ConsultationPage: React.FC = () => {
             attempts++;
 
             try {
-                const response = await fetch(`/api/dify/report-status/${consultationId}`);
+                const headers: HeadersInit = {};
+                if (API_KEY) {
+                    headers['X-API-Key'] = API_KEY;
+                }
+
+                const response = await fetch(`/api/dify/report-status/${consultationId}`, {
+                    headers
+                });
 
                 // Check if response is OK (200-299)
                 if (!response.ok) {
@@ -823,7 +837,14 @@ const ConsultationPage: React.FC = () => {
             if (!consultationId || currentStep !== 'report') return;
 
             try {
-                const response = await fetch(`/api/dify/report-status/${consultationId}`);
+                const headers: HeadersInit = {};
+                if (API_KEY) {
+                    headers['X-API-Key'] = API_KEY;
+                }
+
+                const response = await fetch(`/api/dify/report-status/${consultationId}`, {
+                    headers
+                });
                 const data = await response.json();
 
                 if (data.status === 'processing') {
