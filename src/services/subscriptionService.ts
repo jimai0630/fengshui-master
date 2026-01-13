@@ -2,6 +2,8 @@
 // This is a frontend service that will call backend APIs for subscription management
 // TODO: Implement actual API calls when backend is ready
 
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+
 export interface SubscriptionData {
     email: string;
     nickname?: string;
@@ -36,12 +38,17 @@ class SubscriptionService {
             // TODO: Replace with actual API call
             console.log('Subscribing user:', data);
 
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+            if (API_KEY) {
+                headers['X-API-Key'] = API_KEY;
+            }
+
             // Simulated API call
             const response = await fetch(`${this.apiBaseUrl}/subscribe`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(data),
             });
 
@@ -70,7 +77,14 @@ class SubscriptionService {
     async getStatus(email: string): Promise<SubscriptionStatus> {
         try {
             // TODO: Replace with actual API call
-            const response = await fetch(`${this.apiBaseUrl}/subscription/${encodeURIComponent(email)}`);
+            const headers: HeadersInit = {};
+            if (API_KEY) {
+                headers['X-API-Key'] = API_KEY;
+            }
+
+            const response = await fetch(`${this.apiBaseUrl}/subscription/${encodeURIComponent(email)}`, {
+                headers
+            });
 
             if (!response.ok) {
                 throw new Error('Failed to get subscription status');
@@ -97,11 +111,16 @@ class SubscriptionService {
     async unsubscribe(email: string, token: string): Promise<SubscriptionResponse> {
         try {
             // TODO: Replace with actual API call
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+            if (API_KEY) {
+                headers['X-API-Key'] = API_KEY;
+            }
+
             const response = await fetch(`${this.apiBaseUrl}/unsubscribe`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify({ email, token }),
             });
 

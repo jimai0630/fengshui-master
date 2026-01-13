@@ -6,6 +6,8 @@ import type {
     ConfirmPaymentResponse
 } from '../types/stripe';
 
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+
 // Get Stripe type from loadStripe return type
 type StripeInstance = Awaited<ReturnType<typeof loadStripe>>;
 
@@ -32,11 +34,16 @@ export const getStripe = (): Promise<StripeInstance> => {
 export async function createPaymentIntent(
     params: CreatePaymentIntentParams
 ): Promise<PaymentIntentResponse> {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(params),
     });
 
@@ -54,11 +61,16 @@ export async function createPaymentIntent(
 export async function confirmPayment(
     params: ConfirmPaymentParams
 ): Promise<ConfirmPaymentResponse> {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch('/api/stripe/confirm-payment', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(params),
     });
 

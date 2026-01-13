@@ -11,6 +11,7 @@ import type {
 } from '../types/dify';
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || '/api';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 /**
  * 上传文件到后端，由后端代理到Dify
@@ -27,8 +28,14 @@ export async function uploadFile(
         formData.append('user', userId);
     }
 
+    const headers: HeadersInit = {};
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch(`${BACKEND_BASE_URL}/dify/upload`, {
         method: 'POST',
+        headers,
         body: formData
     });
 
@@ -46,11 +53,16 @@ export async function uploadFile(
 export async function chatWithDify(
     payload: DifyChatRequest
 ): Promise<DifyChatResponse> {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch(`${BACKEND_BASE_URL}/dify/chat`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
             responseMode: 'streaming',
             ...payload
@@ -75,11 +87,16 @@ export async function callLayoutGrid(
     houseType: string,
     languageMode: 'zh' | 'en' | 'mix' = 'en'
 ): Promise<{ result: LayoutGridResponse; conversationId: string }> {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch(`${BACKEND_BASE_URL}/dify/layout-grid`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
             userData,
             floorPlanFileIds,
@@ -138,11 +155,16 @@ export async function callEnergySummary(
     houseGridJson: string,
     mode: 'energy_summary' | 'full_report' = 'energy_summary'
 ): Promise<{ result: EnergySummaryResponse; conversationId: string }> {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch(`${BACKEND_BASE_URL}/dify/energy-summary`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
             userData,
             houseGridJson,
@@ -244,11 +266,16 @@ export async function callFullReport(
 ): Promise<{ result: FullReportResponse; conversationId: string }> {
     onProgress?.('Generating your personalized report...');
 
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+    };
+    if (API_KEY) {
+        headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch(`${BACKEND_BASE_URL}/dify/full-report`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
             userData,
             houseGridJson,

@@ -116,12 +116,76 @@ if (STRIPE_PRODUCT_ID) {
     console.log('[Stripe] Product ID configured:', STRIPE_PRODUCT_ID);
 }
 
-app.use(cors());
+// ============================================================================
+// CORS Configuration
+// ============================================================================
+const corsOptions = {
+    origin: function (origin, callback) {
+        const allowedOrigins = (
+            process.env.ALLOWED_ORIGINS ||
+            'http://localhost:5173,http://localhost:3000'
+        ).split(',').map(o => o.trim());
+
+        // Allow requests without origin (server-side, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn('[CORS] Blocked request from:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
+
+// ============================================================================
+// API Authentication Middleware
+// ============================================================================
+const API_SECRET_KEY = process.env.API_SECRET_KEY || '';
+
+function validateApiKey(req, res, next) {
+    // Skip validation if API key is not configured (development mode)
+    if (!API_SECRET_KEY) {
+        console.warn('[Auth] API_SECRET_KEY not configured, skipping validation');
+        return next();
+    }
+
+    const apiKey = req.headers['x-api-key'];
+
+    if (!apiKey) {
+        console.warn('[Auth] Missing API key from', req.ip);
+        return res.status(401).json({
+            error: 'Unauthorized',
+            message: 'API key is missing. Please provide X-API-Key header.'
+        });
+    }
+
+    // Support multiple keys (for rolling updates)
+    const validKeys = API_SECRET_KEY.split(',').map(k => k.trim());
+
+    if (!validKeys.includes(apiKey)) {
+        console.warn('[Auth] Invalid API key from', req.ip);
+        return res.status(403).json({
+            error: 'Forbidden',
+            message: 'Invalid API key'
+        });
+    }
+
+    console.log('[Auth] API key validated from', req.ip);
+    next();
+}
 
 // Webhook endpoint needs raw body for signature verification
 // This must be before other routes that use express.json()
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
+// Apply API key validation to all API routes (except webhook which has its own signature verification)
+app.use('/api', validateApiKey);
 
 // 简单的重试封装，用于临时性网络错误或 5xx
 import http from 'http';
