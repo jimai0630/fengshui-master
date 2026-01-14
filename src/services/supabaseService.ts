@@ -243,6 +243,30 @@ export async function loadConsultationFromSupabase(
 }
 
 /**
+ * Load consultation by ID (for payment recovery)
+ */
+export async function loadConsultationById(consultationId: string): Promise<ConsultationRecord | null> {
+    if (!supabase) {
+        console.warn('[Supabase] Client not configured, skipping load by id');
+        return null;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .eq('id', consultationId)
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('[Supabase] Failed to load consultation by id:', error);
+        return null;
+    }
+}
+
+/**
  * Get or create consultation ID for async report generation
  */
 export async function getOrCreateConsultationId(

@@ -19,7 +19,7 @@ import {
     updateConsultationState
 } from '../services/consultationStateService';
 import { confirmPayment } from '../services/stripeService';
-import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId, supabase } from '../services/supabaseService';
+import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId, loadConsultationById, supabase } from '../services/supabaseService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
 
 // Types
@@ -205,6 +205,85 @@ const ConsultationPage: React.FC = () => {
     // Ref to track if we're currently loading state to prevent infinite loops
     const isLoadingStateRef = useRef(false);
     const hasLoadedStateRef = useRef(false);
+
+    // Handle payment recovery mode (restore from paid session)
+    useEffect(() => {
+        const locationState = location.state as any;
+
+        // Check if this is a restore mode navigation
+        if (locationState?.restore && locationState?.consultationId && locationState?.email) {
+            console.log('[PaymentRecovery] Restoring from paid session:', locationState.consultationId);
+
+            // Prevent other state loading logic from running
+            hasLoadedStateRef.current = true;
+
+            const restoreSession = async () => {
+                try {
+                    // Load full consultation record from Supabase
+                    const record = await loadConsultationById(locationState.consultationId);
+
+                    if (!record) {
+                        console.error('[PaymentRecovery] Failed to load consultation record');
+                        setError(t('consultation.errors.sessionExpired', 'Session expired. Please start a new consultation.'));
+                        return;
+                    }
+
+                    console.log('[PaymentRecovery] Loaded consultation record:', record);
+
+                    // Map database record to state
+                    const userData = {
+                        email: record.email,
+                        nickname: record.nickname || '',
+                        birthDate: record.birth_date,
+                        gender: record.gender,
+                        benmingStarNo: record.benming_star_no || '',
+                        benmingStarName: record.benming_star_name || ''
+                    };
+
+                    const houseType = record.house_type as HouseType;
+                    const floorPlans = record.floor_plans_data || [];
+                    const layoutGridResult = record.layout_grid_result;
+                    const energySummaryResult = record.energy_summary_result;
+                    const fullReportResult = record.full_report_result;
+
+                    // Restore all state
+                    setUserData(userData);
+                    setHouseType(houseType);
+                    setFloorPlans(floorPlans);
+                    setConsultationId(record.id);
+                    setConversationId(record.conversation_id || '');
+
+                    if (layoutGridResult) {
+                        setLayoutGridResult(layoutGridResult);
+                    }
+
+                    if (energySummaryResult) {
+                        setEnergySummaryResult(energySummaryResult);
+                    }
+
+                    if (fullReportResult) {
+                        setFullReportResult(fullReportResult);
+                        setCurrentStep('report');
+                        setHasPaid(record.payment_completed || false);
+                    } else {
+                        // Report still generating, start polling
+                        console.log('[PaymentRecovery] Report still generating, starting polling');
+                        setCurrentStep('report');
+                        setHasPaid(record.payment_completed || false);
+                        startReportPolling(record.id);
+                    }
+
+                    console.log('[PaymentRecovery] Session restored successfully');
+
+                } catch (error) {
+                    console.error('[PaymentRecovery] Failed to restore session:', error);
+                    setError(t('consultation.errors.sessionRestoreFailed', 'Failed to restore session. Please try again.'));
+                }
+            };
+
+            restoreSession();
+        }
+    }, [location]);
 
     // Load saved state if user has email
     useEffect(() => {
@@ -692,6 +771,14 @@ const ConsultationPage: React.FC = () => {
             // 4. Mark as paid
             setHasPaid(true);
             localStorage.setItem(`payment_status_${consultationId}`, 'paid');
+
+            // 4.1. Save last paid session for auto-recovery
+            localStorage.setItem('last_paid_session', JSON.stringify({
+                consultationId: consultationId,
+                email: userData.email,
+                timestamp: Date.now()
+            }));
+            console.log('[Payment] Saved paid session for auto-recovery');
 
             console.log('[Payment] Payment confirmed, PDF download will be triggered');
 

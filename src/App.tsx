@@ -2,8 +2,12 @@ import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import ConsultationPage from './pages/ConsultationPage';
+import { usePaymentRecovery } from './hooks/usePaymentRecovery';
 
 function App() {
+  // Check for paid sessions on app start
+  usePaymentRecovery();
+
   return (
     <div className="min-h-screen">
       <Navbar />
