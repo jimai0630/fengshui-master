@@ -32,7 +32,7 @@ const HouseDetailsSection: React.FC = () => {
     // Personal Info State
     const [name, setName] = useState(location.state?.name || '');
     const [email] = useState(location.state?.email || 'user@example.com'); // Default email for now
-    const [gender, setGender] = useState<'男' | '女' | ''>('');
+    const [gender, setGender] = useState<'男' | '女' | ''>(location.state?.gender || '');
     const [birthDate, setBirthDate] = useState(location.state?.birthDate || '');
     const [floorIndex] = useState(1);
 

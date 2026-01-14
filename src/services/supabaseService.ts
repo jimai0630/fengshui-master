@@ -272,7 +272,8 @@ export async function loadConsultationById(consultationId: string): Promise<Cons
  */
 export async function queryPaidConsultationsByUser(
     email: string,
-    birthDate: string
+    birthDate: string,
+    gender: string
 ): Promise<ConsultationRecord[]> {
     if (!supabase) {
         console.warn('[Supabase] Client not configured');
@@ -285,6 +286,7 @@ export async function queryPaidConsultationsByUser(
             .select('*')
             .eq('email', email)
             .eq('birth_date', birthDate)
+            .eq('gender', gender)
             .eq('payment_completed', true)
             .not('full_report_result', 'is', null)
             .order('paid_at', { ascending: false })

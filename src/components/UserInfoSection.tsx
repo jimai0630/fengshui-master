@@ -21,7 +21,10 @@ const UserInfoSection: React.FC = () => {
     const [month, setMonth] = useState('');
     const [day, setDay] = useState('');
 
-    const [errors, setErrors] = useState<{ email?: string; date?: string; year?: string; month?: string; day?: string }>({});
+    // Gender State
+    const [gender, setGender] = useState<'男' | '女' | ''>('');
+
+    const [errors, setErrors] = useState<{ email?: string; date?: string; year?: string; month?: string; day?: string; gender?: string }>({});
     const [zodiacReport, setZodiacReport] = useState<{ zodiac: string; fortune: ZodiacFortune } | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [showExistingReportDialog, setShowExistingReportDialog] = useState(false);
@@ -57,12 +60,14 @@ const UserInfoSection: React.FC = () => {
             if (isNaN(d) || d < 1 || d > daysInMonth) newErrors.day = t('userInfo.invalidDay');
         }
 
+        if (!gender) newErrors.gender = t('userInfo.required');
+
         if (Object.keys(newErrors).length > 0) {
             setErrors({ ...errors, ...newErrors });
             return false;
         }
 
-        setErrors({ ...errors, year: undefined, month: undefined, day: undefined });
+        setErrors({ ...errors, year: undefined, month: undefined, day: undefined, gender: undefined });
         return true;
     };
 
@@ -106,7 +111,7 @@ const UserInfoSection: React.FC = () => {
 
         // Query existing paid consultations
         try {
-            const paidReports = await queryPaidConsultationsByUser(email, dateStr);
+            const paidReports = await queryPaidConsultationsByUser(email, dateStr, gender);
 
             if (paidReports.length > 0) {
                 // Found existing paid reports, show confirmation dialog
@@ -237,6 +242,26 @@ const UserInfoSection: React.FC = () => {
                             {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
                         </div>
 
+                        {/* Gender Input */}
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                                {t('userInfo.gender') || '性别'} <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                className={`block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary focus:ring-primary dark:bg-gray-800 dark:text-white py-2 px-3 sm:text-sm ${errors.gender ? 'border-red-500' : ''}`}
+                                value={gender}
+                                onChange={(e) => {
+                                    setGender(e.target.value as '男' | '女' | '');
+                                    setErrors({ ...errors, gender: undefined });
+                                }}
+                            >
+                                <option value="">{currentLang === 'zh' ? '请选择性别' : 'Select Gender'}</option>
+                                <option value="男">{currentLang === 'zh' ? '男' : 'Male'}</option>
+                                <option value="女">{currentLang === 'zh' ? '女' : 'Female'}</option>
+                            </select>
+                            {errors.gender && <p className="mt-1 text-xs text-red-500">{errors.gender}</p>}
+                        </div>
+
                         <div className="pt-2">
                             {!zodiacReport ? (
                                 <button
@@ -263,6 +288,7 @@ const UserInfoSection: React.FC = () => {
                                                     name: nickname,
                                                     birthDate: dateStr,
                                                     email: email,
+                                                    gender: gender,
                                                     reset: true
                                                 }
                                             });
@@ -332,6 +358,7 @@ const UserInfoSection: React.FC = () => {
                                                 name: nickname,
                                                 birthDate: dateStr,
                                                 email: email,
+                                                gender: gender,
                                                 reset: true
                                             }
                                         });
