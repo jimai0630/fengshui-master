@@ -48,6 +48,12 @@ i18n
                         dateRequired: "Please select your birth date",
                         calculating: "Calculating your zodiac...",
                         reportReady: "Preview Your Exclusive Fortune Report",
+                        existingReportTitle: "Existing Report Found",
+                        existingReportMessage: "You have previously purchased a feng shui report. Would you like to view it?",
+                        createNewAnalysis: "Create New Analysis",
+                        viewExistingReport: "View Existing Report",
+                        reportGeneratedAt: "Generated",
+                        houseType: "House Type",
                         subscribe: {
                             label: "Subscribe to receive monthly personalized fortune reports",
                             description: "We will automatically send your exclusive monthly fortune report to your email on the last day of each month."
@@ -377,6 +383,12 @@ i18n
                         dateRequired: "请选择您的出生日期",
                         calculating: "正在计算您的生肖...",
                         reportReady: "预览您的专属运势报告",
+                        existingReportTitle: "发现已购买报告",
+                        existingReportMessage: "您之前已购买过风水报告，是否直接查看？",
+                        createNewAnalysis: "创建新分析",
+                        viewExistingReport: "查看已有报告",
+                        reportGeneratedAt: "生成时间",
+                        houseType: "房型",
                         subscribe: {
                             label: "订阅我们，以获取每月您的专属运势报告",
                             description: "我们将在每月最后一天自动发送您的专属月度运势报告到您的邮箱。"

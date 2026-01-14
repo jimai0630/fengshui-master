@@ -267,6 +267,40 @@ export async function loadConsultationById(consultationId: string): Promise<Cons
 }
 
 /**
+ * Query paid consultations by user basic info (ignoring floor plan hash)
+ * Used for quick access to existing paid reports
+ */
+export async function queryPaidConsultationsByUser(
+    email: string,
+    birthDate: string,
+    gender: string
+): Promise<ConsultationRecord[]> {
+    if (!supabase) {
+        console.warn('[Supabase] Client not configured');
+        return [];
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .eq('email', email)
+            .eq('birth_date', birthDate)
+            .eq('gender', gender)
+            .eq('payment_completed', true)
+            .not('full_report_result', 'is', null)
+            .order('paid_at', { ascending: false })
+            .limit(5);
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('[Supabase] Failed to query paid consultations:', error);
+        return [];
+    }
+}
+
+/**
  * Get or create consultation ID for async report generation
  */
 export async function getOrCreateConsultationId(

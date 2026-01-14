@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Lunar } from 'lunar-javascript';
-import { X } from 'lucide-react';
+import { X, Info } from 'lucide-react';
 import { zodiacFortunes } from '../data/zodiacFortunes';
+import { queryPaidConsultationsByUser } from '../services/supabaseService';
+import type { ConsultationRecord } from '../services/supabaseService';
 import type { ZodiacFortune } from '../data/zodiacFortunes';
 
 const UserInfoSection: React.FC = () => {
@@ -22,6 +24,8 @@ const UserInfoSection: React.FC = () => {
     const [errors, setErrors] = useState<{ email?: string; date?: string; year?: string; month?: string; day?: string }>({});
     const [zodiacReport, setZodiacReport] = useState<{ zodiac: string; fortune: ZodiacFortune } | null>(null);
     const [showModal, setShowModal] = useState(false);
+    const [showExistingReportDialog, setShowExistingReportDialog] = useState(false);
+    const [existingReports, setExistingReports] = useState<ConsultationRecord[]>([]);
 
     const zodiacMap: Record<string, string> = {
         '鼠': 'Rat', '牛': 'Ox', '虎': 'Tiger', '兔': 'Rabbit',
@@ -75,7 +79,7 @@ const UserInfoSection: React.FC = () => {
         }
     };
 
-    const handleSend = (e: React.FormEvent) => {
+    const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         const newErrors: typeof errors = {};
 
@@ -99,17 +103,33 @@ const UserInfoSection: React.FC = () => {
         }
 
         const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        const zodiacKey = calculateZodiac(dateStr);
+        const gender = calculateZodiac(dateStr) || 'unknown';
 
-        if (zodiacKey && zodiacFortunes[zodiacKey]) {
+        // Query existing paid consultations
+        try {
+            const paidReports = await queryPaidConsultationsByUser(email, dateStr, gender);
+
+            if (paidReports.length > 0) {
+                // Found existing paid reports, show confirmation dialog
+                setExistingReports(paidReports);
+                setShowExistingReportDialog(true);
+                return;
+            }
+        } catch (error) {
+            console.error('[UserInfoSection] Failed to query paid consultations:', error);
+            // Continue with normal flow if query fails
+        }
+
+        // No existing paid reports, show zodiac modal (original flow)
+        if (gender && zodiacFortunes[gender]) {
             setZodiacReport({
-                zodiac: zodiacKey,
-                fortune: zodiacFortunes[zodiacKey]
+                zodiac: gender,
+                fortune: zodiacFortunes[gender]
             });
-            setShowModal(true); // Automatically show modal on success
+            setShowModal(true);
 
             // Auto-subscribe
-            console.log('Subscription:', { email, nickname, birthDate: dateStr, zodiac: zodiacKey });
+            console.log('Subscription:', { email, nickname, birthDate: dateStr, zodiac: gender });
         }
     };
 
@@ -320,6 +340,86 @@ const UserInfoSection: React.FC = () => {
                                 className="w-full py-3.5 px-4 bg-primary text-white text-lg font-bold rounded-xl hover:bg-amber-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                             >
                                 {currentLang === 'zh' ? '✨ 开启下一步：居家能量探索' : 'Next Step: Home Energy Exploration'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Existing Reports Confirmation Dialog */}
+            {showExistingReportDialog && existingReports.length > 0 && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full">
+                        {/* Header */}
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0 w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                                    <Info className="w-6 h-6 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                        {t('userInfo.existingReportTitle') || '发现已购买报告'}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        {t('userInfo.existingReportMessage') || '您之前已购买过风水报告，是否直接查看？'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Report List */}
+                        <div className="p-6 max-h-60 overflow-y-auto">
+                            {existingReports.map((report, index) => (
+                                <div key={report.id} className="mb-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                    <div className="text-sm">
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                            {t('userInfo.reportGeneratedAt', '生成时间')}: {new Date(report.paid_at || report.updated_at).toLocaleDateString()}
+                                        </div>
+                                        <div className="text-gray-600 dark:text-gray-400">
+                                            {t('userInfo.houseType', '房型')}: {report.house_type}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowExistingReportDialog(false);
+                                    // Create new analysis, show zodiac modal
+                                    const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                    const gender = calculateZodiac(dateStr);
+                                    if (gender && zodiacFortunes[gender]) {
+                                        setZodiacReport({
+                                            zodiac: gender,
+                                            fortune: zodiacFortunes[gender]
+                                        });
+                                        setShowModal(true);
+                                    }
+                                }}
+                                className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                                {t('userInfo.createNewAnalysis') || '创建新分析'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowExistingReportDialog(false);
+                                    // Navigate to report page using the latest record
+                                    const latestReport = existingReports[0];
+                                    const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                    navigate('/consultation', {
+                                        state: {
+                                            restore: true,
+                                            consultationId: latestReport.id,
+                                            email: email
+                                        }
+                                    });
+                                }}
+                                className="flex-1 py-3 px-4 bg-primary text-white rounded-lg font-medium hover:bg-primary/90"
+                            >
+                                {t('userInfo.viewExistingReport') || '查看已有报告'}
                             </button>
                         </div>
                     </div>
