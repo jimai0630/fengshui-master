@@ -103,11 +103,10 @@ const UserInfoSection: React.FC = () => {
         }
 
         const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        const gender = calculateZodiac(dateStr) || 'unknown';
 
         // Query existing paid consultations
         try {
-            const paidReports = await queryPaidConsultationsByUser(email, dateStr, gender);
+            const paidReports = await queryPaidConsultationsByUser(email, dateStr);
 
             if (paidReports.length > 0) {
                 // Found existing paid reports, show confirmation dialog
@@ -121,15 +120,16 @@ const UserInfoSection: React.FC = () => {
         }
 
         // No existing paid reports, show zodiac modal (original flow)
-        if (gender && zodiacFortunes[gender]) {
+        const zodiac = calculateZodiac(dateStr);
+        if (zodiac && zodiacFortunes[zodiac]) {
             setZodiacReport({
-                zodiac: gender,
-                fortune: zodiacFortunes[gender]
+                zodiac: zodiac,
+                fortune: zodiacFortunes[zodiac]
             });
             setShowModal(true);
 
             // Auto-subscribe
-            console.log('Subscription:', { email, nickname, birthDate: dateStr, zodiac: gender });
+            console.log('Subscription:', { email, nickname, birthDate: dateStr, zodiac: zodiac });
         }
     };
 
@@ -390,11 +390,11 @@ const UserInfoSection: React.FC = () => {
                                     setShowExistingReportDialog(false);
                                     // Create new analysis, show zodiac modal
                                     const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                                    const gender = calculateZodiac(dateStr);
-                                    if (gender && zodiacFortunes[gender]) {
+                                    const zodiac = calculateZodiac(dateStr);
+                                    if (zodiac && zodiacFortunes[zodiac]) {
                                         setZodiacReport({
-                                            zodiac: gender,
-                                            fortune: zodiacFortunes[gender]
+                                            zodiac: zodiac,
+                                            fortune: zodiacFortunes[zodiac]
                                         });
                                         setShowModal(true);
                                     }
