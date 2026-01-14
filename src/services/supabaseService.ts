@@ -275,8 +275,14 @@ export async function queryPaidConsultationsByUser(
     birthDate: string,
     gender: string
 ): Promise<ConsultationRecord[]> {
+    console.log('[queryPaidConsultationsByUser] Starting query with:', {
+        email,
+        birthDate,
+        gender
+    });
+
     if (!supabase) {
-        console.warn('[Supabase] Client not configured');
+        console.warn('[queryPaidConsultationsByUser] Supabase not configured');
         return [];
     }
 
@@ -289,13 +295,20 @@ export async function queryPaidConsultationsByUser(
             .eq('gender', gender)
             .eq('payment_completed', true)
             .not('full_report_result', 'is', null)
-            .order('paid_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(5);
+
+        console.log('[queryPaidConsultationsByUser] Query result:', {
+            count: data?.length || 0,
+            hasError: !!error,
+            error: error?.message,
+            data: data
+        });
 
         if (error) throw error;
         return data || [];
     } catch (error) {
-        console.error('[Supabase] Failed to query paid consultations:', error);
+        console.error('[queryPaidConsultationsByUser] Failed:', error);
         return [];
     }
 }
