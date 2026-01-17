@@ -53,6 +53,7 @@ export interface ConsultationRecord {
     report_conversation_id?: string;
     payment_completed: boolean;
     payment_id?: string;
+    paid_at?: string; // Timestamp when payment was completed
 
     // Metadata
     created_at?: string;

@@ -21,6 +21,7 @@ import {
 import { confirmPayment } from '../services/stripeService';
 import { savePaymentRecord, generateFloorPlansHash, getOrCreateConsultationId, loadConsultationById, supabase } from '../services/supabaseService';
 import { calculateBenmingFromDate } from '../utils/benmingCalculator';
+import { calculateFileMD5 } from '../utils/fileUtils';
 
 // Types
 import type {
@@ -305,9 +306,9 @@ const ConsultationPage: React.FC = () => {
 
             if (userData.email && userData.birthDate && userData.gender && houseType && floorPlans.length > 0) {
                 // Only load state if we have all required parameters
-                const floorPlanFileIds = floorPlans.map(fp => fp.fileId).filter(Boolean) as string[];
+                const floorPlanMD5s = floorPlans.map(fp => fp.md5).filter(Boolean) as string[];
 
-                if (floorPlanFileIds.length > 0) {
+                if (floorPlanMD5s.length > 0) {
                     isLoadingStateRef.current = true;
                     try {
                         const savedState = await loadConsultationState(
@@ -315,7 +316,7 @@ const ConsultationPage: React.FC = () => {
                             userData.birthDate,
                             userData.gender,
                             houseType,
-                            floorPlanFileIds
+                            floorPlanMD5s
                         );
 
                         if (savedState) {
@@ -548,16 +549,28 @@ const ConsultationPage: React.FC = () => {
         setError(null);
 
         try {
+            // 1. Calculate MD5 for each file
+            console.log('[handleUploadSection] Calculating MD5 for', uploads.length, 'files');
+            const md5Promises = uploads.map(upload =>
+                calculateFileMD5(upload.file)
+            );
+            const md5Results = await Promise.all(md5Promises);
+            console.log('[handleUploadSection] MD5 calculation results:', md5Results);
+
             // 2. Upload Files
+            console.log('[handleUploadSection] Uploading files to Dify');
             const uploadPromises = uploads.map(upload =>
                 uploadFile(upload.file, newUserData.email!)
             );
             const uploadResults = await Promise.all(uploadPromises);
+            console.log('[handleUploadSection] File upload results:', uploadResults);
 
             const updatedFloorPlans = uploads.map((upload, idx) => ({
                 ...upload,
-                fileId: uploadResults[idx].id
+                fileId: uploadResults[idx].id,
+                md5: md5Results[idx]
             }));
+            console.log('[handleUploadSection] Updated floor plans:', updatedFloorPlans);
             setFloorPlans(updatedFloorPlans);
 
             // 3. Prepare Data for Agent 1
@@ -592,7 +605,12 @@ const ConsultationPage: React.FC = () => {
                 setCurrentStep('floor-plan-upload');
             }
         } catch (err) {
-            console.error('Floor plan analysis error:', err);
+            console.error('[handleUploadSection] Floor plan analysis error:', err);
+            console.error('[handleUploadSection] Error details:', {
+                message: err instanceof Error ? err.message : String(err),
+                stack: err instanceof Error ? err.stack : undefined,
+                name: err instanceof Error ? err.name : undefined
+            });
             setError(t('consultation.errors.analysisError'));
             setCurrentStep('floor-plan-upload');
         }

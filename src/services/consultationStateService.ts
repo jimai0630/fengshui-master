@@ -35,14 +35,14 @@ export async function loadConsultationState(
     birthDate: string,
     gender: string,
     houseType: string,
-    floorPlanFileIds: string[]
+    floorPlanMD5s: string[]
 ): Promise<ConsultationState | null> {
-    if (!birthDate || !gender || !houseType || !floorPlanFileIds || floorPlanFileIds.length === 0) {
-        throw new Error('All parameters are required to load consultation state: birthDate, gender, houseType, and floorPlanFileIds');
+    if (!birthDate || !gender || !houseType || !floorPlanMD5s || floorPlanMD5s.length === 0) {
+        throw new Error('All parameters are required to load consultation state: birthDate, gender, houseType, and floorPlanMD5s');
     }
 
     try {
-        const hash = generateFloorPlansHash(floorPlanFileIds);
+        const hash = generateFloorPlansHash(floorPlanMD5s);
         const record = await loadConsultationFromSupabase(email, birthDate, gender, houseType, hash);
 
         if (record) {
@@ -110,14 +110,14 @@ function shouldSyncToSupabase(state: Partial<ConsultationState>): boolean {
 }
 
 function mapStateToRecord(state: Partial<ConsultationState>): Omit<ConsultationRecord, 'id' | 'created_at' | 'updated_at'> {
-    const fileIds = state.floorPlans?.map(fp => fp.fileId).filter(Boolean) as string[];
+    const md5Hashes = state.floorPlans?.map(fp => fp.md5).filter(Boolean) as string[];
 
     return {
         email: state.userData!.email!,
         birth_date: state.userData!.birthDate!,
         gender: state.userData!.gender!,
         house_type: state.houseType!,
-        floor_plans_hash: generateFloorPlansHash(fileIds),
+        floor_plans_hash: generateFloorPlansHash(md5Hashes),
         floor_plans_data: state.floorPlans || [],
         layout_grid_result: state.layoutGridResult,
         layout_conversation_id: state.conversationId || '',

@@ -63,7 +63,8 @@ export type HouseType = 'apartment' | 'condo' | 'villa' | 'loft' | 'other';
 export interface FloorPlanUpload {
     floorIndex: number;
     file: File;
-    fileId?: string;
+    fileId?: string;  // Dify file ID (for API calls)
+    md5?: string;     // MD5 hash (for floor_plans_hash)
     preview?: string;
 }
 

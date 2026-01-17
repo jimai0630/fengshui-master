@@ -86,6 +86,8 @@ const UserInfoSection: React.FC = () => {
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('[UserInfoSection] handleSend called');
+
         const newErrors: typeof errors = {};
 
         // Reset errors
@@ -93,25 +95,34 @@ const UserInfoSection: React.FC = () => {
 
         let isValid = true;
 
+        console.log('[UserInfoSection] Form data:', { email, year, month, day, gender });
+
         if (!email || !validateEmail(email)) {
             newErrors.email = t('userInfo.emailRequired');
             isValid = false;
+            console.log('[UserInfoSection] Email validation failed');
         }
 
         if (!validateDate()) {
             isValid = false;
+            console.log('[UserInfoSection] Date validation failed');
         }
 
         if (!isValid) {
+            console.log('[UserInfoSection] Form validation failed:', newErrors);
             setErrors(prev => ({ ...prev, ...newErrors }));
             return;
         }
 
+        console.log('[UserInfoSection] Form validation passed');
+
         const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        console.log('[UserInfoSection] About to query paid consultations:', { email, dateStr, gender });
 
         // Query existing paid consultations
         try {
             const paidReports = await queryPaidConsultationsByUser(email, dateStr, gender);
+            console.log('[UserInfoSection] Query returned:', paidReports.length, 'records');
 
             if (paidReports.length > 0) {
                 // Found existing paid reports, show confirmation dialog
@@ -123,6 +134,8 @@ const UserInfoSection: React.FC = () => {
             console.error('[UserInfoSection] Failed to query paid consultations:', error);
             // Continue with normal flow if query fails
         }
+
+        console.log('[UserInfoSection] No existing paid reports found, showing zodiac modal');
 
         // No existing paid reports, show zodiac modal (original flow)
         const zodiac = calculateZodiac(dateStr);
@@ -396,11 +409,11 @@ const UserInfoSection: React.FC = () => {
 
                         {/* Report List */}
                         <div className="p-6 max-h-60 overflow-y-auto">
-                            {existingReports.map((report, index) => (
+                            {existingReports.map((report) => (
                                 <div key={report.id} className="mb-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                                     <div className="text-sm">
                                         <div className="font-medium text-gray-900 dark:text-white">
-                                            {t('userInfo.reportGeneratedAt', '生成时间')}: {new Date(report.paid_at || report.updated_at).toLocaleDateString()}
+                                            {t('userInfo.reportGeneratedAt', '生成时间')}: {new Date(report.paid_at || report.updated_at || '').toLocaleDateString()}
                                         </div>
                                         <div className="text-gray-600 dark:text-gray-400">
                                             {t('userInfo.houseType', '房型')}: {report.house_type}
@@ -435,7 +448,6 @@ const UserInfoSection: React.FC = () => {
                                     setShowExistingReportDialog(false);
                                     // Navigate to report page using the latest record
                                     const latestReport = existingReports[0];
-                                    const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
                                     navigate('/consultation', {
                                         state: {
                                             restore: true,
