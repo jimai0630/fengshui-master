@@ -1,0 +1,375 @@
+export interface ZodiacFortune {
+    icon: string;
+    name: { zh: string; en: string };
+    intro: { zh: string; en: string };
+    sections: {
+        love: { zh: string; en: string };
+        wealth: { zh: string; en: string };
+        health: { zh: string; en: string };
+        career: { zh: string; en: string };
+        luck: { zh: string; en: string };
+    };
+}
+
+export const zodiacFortunes: Record<string, ZodiacFortune> = {
+    Rat: {
+        icon: "🐭",
+        name: { zh: "鼠", en: "Rat" },
+        intro: {
+            zh: "亲爱的你： 你聪明、反应快，又有一点点爱想太多。过去一年像是在背着行李爬坡，而新的一年，更像在变幻的路况中继续前行，是“练出真正内功”的一年——不是运气抛弃你，而是宇宙在帮你升级判断力和底气。",
+            en: "Dear you: You are smart, quick-witted, but tend to overthink a little. The past year felt like climbing a hill with heavy luggage, but the new year is more about moving forward under the load and building real strength."
+        },
+        sections: {
+            love: {
+                zh: "2025 里，你在人际和感情中的敏感度变高，关系里有过温暖，也有几次说不清的委屈；很多情绪你习惯吞进肚子里，笑着继续照顾别人。\r\n\r\n到了 2026，整体能量比较重，容易对亲密关系有“怎么又出问题”的无力感。请记住：这不是你不值得被爱，而是老旧的相处方式到了必须升级的时候。  \r\n这一年最重要的事，是学会把情绪在 3 分的时候就说出来，而不是忍到 9 分才爆发——那不是“矫情”，是保护自己。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 尽量让卧室保持柔和、成双成对：床头柜、枕头、装饰品尽量成对摆放，象征关系的平衡。\r\n\r\n• 避免床正对房门或大镜子，让你休息时有“被保护”的感觉，有助于减少夜里的焦虑和胡思乱想。\r\n\r\n• 家中 西南方位可以当作“感情角”，保持干净明亮，放上一两件让你想起温暖关系的物品（合照、成双的小摆件），给自己的亲密关系一个被看见的位置。",
+                en: "In 2025, your sensitivity in relationships increases. There was warmth, but also unspoken grievances. You tend to swallow your emotions and smile while caring for others. In 2026, the energy is heavier, bringing a sense of helplessness in intimacy. Remember: It's not that you don't deserve love, but that old ways of relating must be upgraded. Try to express 'I'm actually sad' earlier, rather than waiting for an explosion. Sincere expression will help you keep important people."
+            },
+            wealth: {
+                zh: "2025 的钱，对你来说偏向「稳中有进」，工作有发挥空间，贵人和机会都不算少，只是你会隐隐担心“以后会不会不稳定”。\r\n\r\n进入 2026，能量起伏加大，更像是在考验你：能不能在压力下，依然保持清醒。大额消费和合作，宁愿慢一点、看久一点也不要仓促定案。你并不是不能赚钱，而是今年更适合守好已有的基础，不被情绪和冲动带节奏。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 把自己的钱包和电子账本整理干净，不要塞满各种过期卡和小票，象征你愿意用更清晰的方式面对金钱。\r\n\r\n• 看一看家中东南区域（常被视为“财富角”）：保持明亮通风、少堆杂物，可以放一盆健康的绿植或小台灯，暗示“钱的路是通的”。\r\n\r\n• 工作桌尽量避免背对房门，可微微侧身，让自己在处理金钱与决策时有被支撑、能掌握全局的感觉。",
+                en: "In 2025, wealth is 'steady progress'. There's room for work, nobles, and opportunities, but you worry about future instability. In 2026, energy fluctuates more, testing your clarity under pressure. For large expenses and collaborations, take your time. It's not that you can't make money, but this year is better for guarding your foundation and not being swayed by emotions."
+            },
+            health: {
+                zh: "2025，你最常累的不是身体，而是心——睡眠、胃口、肩颈，都在替你“吸收”情绪。\r\n\r\n2026 年，更要小心长期紧绷带来的疲惫感。大环境不轻松时，越要把「规律睡觉、好好吃饭」当成底线。累的时候，允许自己停一停，而不是逼自己再硬撑一下。心如果被照顾好了，你会发现身体也在慢慢回暖。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 卧室尽量简洁、少电子产品，睡前把手机从枕边移开，给睡眠营造一个真正安静的场域。\r\n\r\n• 家中多引入 自然光和新鲜空气：早上开窗几分钟、摆上一两盆容易照顾的绿植，让家里的空气和能量都动起来，有助于舒缓长期的心累",
+                en: "In 2025, it's your heart that's tired, not just your body—sleep, appetite, and shoulders are absorbing emotions. In 2026, be wary of exhaustion from long-term tension. When the environment is tough, make 'regular sleep and eating' your baseline. Allow yourself to stop when tired. If your heart is cared for, your body will warm up too."
+            },
+            career: {
+                zh: "2025，你在工作上其实有进展，人看起来依旧可靠，只是很多辛苦都藏在细节里。你的努力帮你积累了人脉与信用，这是明明白白的底层资产。\r\n\r\n2026 的工作环境变数多，常常不是你做得好不好，而是外在条件在变。遇到推迟、改计划、重来一次时，先保护好自己的节奏：\r\n\r\n• 重要的决定，拖过一两天再确认；\r\n\r\n• 能写下来、落实成流程的，就不要只靠记性。  \r\n  这些看似普通的小动作，会在这一年帮你稳住局面。\r\n  \r\n  居家风水小提醒（事业）：\r\n  \r\n  - 尽量为自己腾出一个专属工作角落，哪怕只是餐桌的一侧：桌面保持 70% 以上是干净的，让思路有空间展开。\r\n  \r\n  - 工作位能看见房门但不正对房门，会让你在职场中更有掌控感，减少“总被突发状况打乱”的感觉。",
+                en: "In 2025, you made progress at work and appeared reliable, but the hard work was in the details. Your efforts built connections and credit. In 2026, the work environment is variable. When facing delays or changes, protect your pace: delay important decisions by a day or two; write things down instead of relying on memory. These small actions will stabilize your situation."
+            },
+            luck: {
+                zh: "2025 的你，其实是一路被推动着成长：负责更多、能见度更高，只是你自己还没来得及感到骄傲。\r\n\r\n2026 对你而言，是「重训练年」：生活会安排一些曲折，逼你练出更好的判断力、界限感和抗压能力。请对自己说一句：“这一年我不会被打倒，而是被打磨。”  \r\n当你用这样的眼光看待经历，许多现在的难题，会变成以后你最硬气的底气。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 把家里的玄关和走道清出一条干净的路，就像为好运预留通道，避免鞋子杂物堆成“狭窄的迷宫”。\r\n\r\n• 每个月腾一点时间做“小型断舍离”，丢掉明显让你心烦、压抑的东西，让新的机会有地方进来。",
+                en: "In 2025, you were pushed to grow: more responsibility, higher visibility. 2026 is a 'heavy training year': life will bring twists to force better judgment, boundaries, and resilience. Tell yourself: 'I will not be defeated, but polished.' Viewing experiences this way turns problems into your strongest foundation."
+            }
+        }
+    },
+    Ox: {
+        icon: "🐮",
+        name: { zh: "牛", en: "Ox" },
+        intro: {
+            zh: "亲爱的你： 你稳、耐心强，又习惯把苦往肚里咽。过去一年像是在把地基打结实，而新的一年，则是在这块地基上，慢慢长出可以看见的成果。",
+            en: "Dear you: You are steady, patient, and used to swallowing bitterness. The past year was about solidifying the foundation, and the new year is about letting visible results grow on this foundation."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在关系里多半扮演“可靠那一方”，很多事你不说，但你会默默去做，安全感大多是你提供的。\r\n\r\n2026，能量有点忽好忽坏，关系里容易有一些小波折、误会或现实压力。别急着把所有责任都揽在自己身上，试着把“我也会累，我也需要被照顾”说出来。你越肯把心摊出来，真正在意你的人，越会向你靠近。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 在卧室或客厅选一块小区域，当作“关系专属角”，放两张你珍惜的合照或一对装饰品，提醒自己：关系是要被经营、被庆祝的。\r\n\r\n• 卧室色调可以多一些米色、浅粉、暖黄，减少冷色调，帮助关系里的话变得更柔软。",
+                en: "In 2025, you were the 'reliable one', providing security silently. In 2026, energy fluctuates, bringing minor twists or realistic pressures in relationships. Don't take all responsibility; try saying 'I get tired too, I need care too'. The more you open your heart, the closer those who care will come."
+            },
+            wealth: {
+                zh: "2025 的钱，对你来说是「稳稳的」，有机会通过合作、专业表现获取更稳定的收入，只是你会更谨慎，不太敢轻易尝试新方向。\r\n\r\n2026 年，并不适合太激进的布局，而更像是整理账本的一年：看清什么是必要支出，什么其实只是“情绪购物”。当你愿意一点点简化金钱流向，你会发现，原来自己已经有了不小的底气。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 把家庭的账单集中收纳，比如一个统一的文件夹或抽屉，让金钱流动在清楚、有秩序的系统里。\r\n\r\n• 打理家中东南方的小角落，让那一块干净、明亮、有生气，例如摆绿植或小流水摆件，象征财富持续有“活水”。",
+                en: "In 2025, money was 'steady', with stable income from cooperation and professionalism, but you were cautious. 2026 is not for radical moves, but for organizing the ledger: distinguish necessary expenses from 'emotional shopping'. Simplifying money flow will reveal your substantial foundation."
+            },
+            health: {
+                zh: "2025，你常常“事先想好所有最坏的情况”，脑袋很累，身体也就跟着硬邦邦。\r\n\r\n来到 2026，要特别留意长期疲惫累积的问题。哪怕只是在每天睡前，用 5 分钟做拉伸、深呼吸，都比继续刷手机更能帮你恢复。你不是不能累，你只是不能一直假装不累。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 尽量让卧室保持空气流通与柔和光线，避免长期拉着厚窗帘不见天日，那会放大疲惫感。\r\n\r\n• 在你最常久坐的地方（比如沙发或书桌前）备一个小水杯或保温瓶，频繁喝水既是身体的需要，也象征能量顺畅流动。",
+                en: "In 2025, you often anticipated the worst, tiring your mind and stiffening your body. In 2026, watch out for accumulated fatigue. Even 5 minutes of stretching before bed helps more than scrolling. You can be tired, but you can't keep pretending you're not."
+            },
+            career: {
+                zh: "2025，你在工作上属于“别人交代的事都能放心”的类型，人际合作机会增加，只是有时会觉得自己“被需要很多，却很少被看见”。\r\n\r\n2026 的职场，对你来说是「边修边开车」的一年：任务可能忽然变多，节奏时快时慢。你真正需要做的，是慢慢学会：\r\n\r\n• 哪些事情必须亲自扛；\r\n\r\n• 哪些可以分给别人；\r\n\r\n• 哪些其实可以说“不急”。  \r\n  当你从“凡事都扛”改成“挑重点扛”，你会发现，原来自己的能量是够用的。\r\n  \r\n  居家风水小提醒（事业）：\r\n  \r\n  - 工作位周围，尽量避免堆满杂物和未完成的文件，让桌面只保留“与现在任务有关”的东西，帮助你一次专注一件事。\r\n  \r\n  - 在工作位的视线范围内，放一两句激励自己的小语或象征“权责在握”的物件（例如有重量感的笔、简单的奖状框），帮自己稳住“我可以”的信念。",
+                en: "In 2025, you were reliable but felt unseen. 2026 is a 'repair while driving' year: tasks may increase, pace varies. Learn to distinguish what you must do, what to delegate, and what can wait. Shifting from 'carrying everything' to 'carrying priorities' will show you have enough energy."
+            },
+            luck: {
+                zh: "2025 的整体感觉，是不惊天动地，但悄悄地把你往上托了一点。很多机会，看起来像“顺其自然”，其实都是之前稳扎稳打换来的。\r\n\r\n2026 不是爆发年，却是「越到年底越知道自己在变强」的一年。请允许自己走得慢一点，但一定要承认自己每一点小小的前进——这会让你的运气，越来越愿意站在你这边。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 定期整理冰箱、储物柜，把过期或不会再用的东西清掉，让家看起来是“有未来安排”的，而不是“舍不得过去的残留”",
+                en: "2025 quietly lifted you up. Opportunities seemed natural but came from steady work. 2026 isn't an explosive year, but one where you realize you're getting stronger by year-end. Allow yourself to go slow, but acknowledge every step forward—this invites luck to your side."
+            }
+        }
+    },
+    Tiger: {
+        icon: "🐯",
+        name: { zh: "虎", en: "Tiger" },
+        intro: {
+            zh: "亲爱的你： 你有劲、有魄力，也不喜欢被束缚。过去一年像是在试探各种可能，而新的一年，则更像“舞台灯光慢慢打亮”的一年。",
+            en: "Dear you: You are energetic, bold, and dislike restraint. The past year was about testing possibilities, and the new year is like the stage lights slowly turning up."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在感情里有真诚，也会有点“火力太猛”，一时情绪上头说过几句重话，事后又有点后悔。\r\n\r\n2026，整体能量对你相当友好，更有利于你好好经营重要关系。很多资料都提到，这一年你的魅力、资源、人缘都会抬头，只是要小心小人和是非，所以越重要的人，越值得你温柔一点、低调一点。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 卧室里尽量避免尖锐、过于冷硬的装饰，多用圆润线条、柔软布料，让你的火力被温柔接住，而不是反弹回自己。\r\n\r\n• 在家中西南区域放一盏温暖的小灯或一对喜欢的摆件，象征愿意给关系多一点耐心和陪伴。",
+                en: "In 2025, you were sincere but sometimes too intense, regretting harsh words later. 2026 is friendly to relationships. Your charm and popularity will rise, but beware of gossip. Treat important people with more gentleness and low profile."
+            },
+            wealth: {
+                zh: "2025，你在钱这件事上“胆子不小”，有过一些勇敢尝试，有成功也有教训。\r\n\r\n到了 2026，整体财运被看好——只要你懂得收敛一点冲动，持续把精力放在真正长期有价值的方向上，收入有机会明显上升。记得：你不需要一夜之间证明什么，你只要一年比一年更稳。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 打理好自己的工作桌与电子设备：线材收纳整齐、桌面干净，象征金钱流向与思路一样清楚。\r\n\r\n• 家中东南角保持明亮、有生命力，可以摆放象征成长的植物，让“行动力 + 机会”在这个位置被放大。",
+                en: "In 2025, you were bold with money, with mixed results. In 2026, wealth looks good—if you curb impulsiveness and focus on long-term value, income can rise. You don't need to prove anything overnight, just be steadier each year."
+            },
+            health: {
+                zh: "2025，你的能量强，但也容易熬夜、拼命、用身体换进度。\r\n\r\n2026 年，行动机会更多，你更需要“用得上、用得久”的身体。保持运动，让自己有一个可以释放压力的出口，比补品更有用。累的时候停一下，不会让你落后，反而会让你走得更远。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 家里预留一个小小的“动一动角落”：瑜伽垫、弹力带、滚筒随手可得，让运动变得“不麻烦”，你就更容易坚持。\r\n\r\n• 避免让床边堆满工作文件或未完成的任务清单，睡觉区域只属于休息，有助于降低长期的压力感。",
+                en: "In 2025, you traded health for progress. In 2026, with more action, you need a durable body. Exercise is better than supplements for stress relief. Stopping when tired won't make you fall behind; it helps you go further."
+            },
+            career: {
+                zh: "2025，你已经开始看见一些新方向，有人邀请你、有机会参与更重要的项目。\r\n\r\n2026 的职场，对你来说是“精彩可期的一年”：能量支持你冲出原本的框架，上升空间比以往更明显。你要做的，是在锋芒和低调之间找到平衡：该出手的时候全力以赴，不该多说的时候保持沉默。这样一来，机会会留在你手上，不会变成别人的故事。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 把玄关和进门第一眼的位置布置得干净利落、带一点“我在往前走”的感觉，比如一幅抽象山路或城市天际线画面，为自己的上升心态定调。\r\n\r\n• 办公区可以放一把舒适、挺拔的椅子，代表“坐得住、扛得起”，帮助你稳定地承接更大的责任。",
+                en: "In 2025, you saw new directions. 2026 is 'exciting and promising': energy supports breaking frames, with obvious upward space. Balance sharpness and low profile: go all out when needed, stay silent when not. This keeps opportunities in your hands."
+            },
+            luck: {
+                zh: "2025，让你习惯了在变化里做决定；\r\n\r\n2026，则是让你看见：原来自己真的可以开一条新路。请大胆一点跟自己说：“这一年，我值得被看见，也有能力扛得起更大的版图。” 当你相信自己，好的机会更容易停在你面前，而不是匆匆路过。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 每当完成一个阶段性的目标，就在家里做一个小小的布置更新，例如换一幅画、添一株植物，让环境跟着你的成长升级，提醒自己“我一直在前进”。",
+                en: "2025 taught you to decide amidst change; 2026 shows you can blaze a new trail. Boldly tell yourself: 'I deserve to be seen and can handle a bigger map.' Believing in yourself makes opportunities stay."
+            }
+        }
+    },
+    Rabbit: {
+        icon: "🐰",
+        name: { zh: "兔", en: "Rabbit" },
+        intro: {
+            zh: "亲爱的你： 你温柔、细腻，很在意氛围。过去一年像是在修补和疗愈，而新的一年，则比较像“被温柔地推着向前走”。",
+            en: "Dear you: You are gentle, delicate, and care about atmosphere. The past year was for healing, and the new year is like being gently pushed forward."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在关系里更渴望安稳，不太想再耗在拉扯里；有时宁可自己退一步，也不愿把话说得太白。\r\n\r\n2026，在感情上是被看好的年份：适合认真经营现有的亲密关系，也适合认真考虑“我要跟什么样的人一起生活很久”。遇到让你心里变平静的人，请多给对方一点时间，也给自己一点信任感。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 在卧室里，尽量避免保留与过去伤心经历相关的物件或照片，给新的关系留出空间。\r\n\r\n• 西南角保持温暖整洁，可加一点柔和的红、粉、米色，像是为“感情运”铺一块柔软的地毯。",
+                en: "In 2025, you craved stability and avoided conflict. 2026 is good for relationships: cultivate existing ones or consider long-term partners. If someone brings you peace, give them time and trust yourself."
+            },
+            wealth: {
+                zh: "2025，你多半走的是“稳守”的路子，收入中规中矩，但花钱也算节制。\r\n\r\n2026，整体能量比去年更友好，适合慢慢把钱用在让你变强的地方：学习、健康、提升专业。你不需要追逐任何一夜暴涨，只要在每次花钱前问自己：“这笔钱，会不会让未来的我更轻松？”就足够。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 整理你的钱包、抽屉、线上支付列表，把早就不用的扣款和会员取消，让金钱流向变得简单清晰。\r\n\r\n• 家中的财富角（东南方），避免堆放纸箱、旧衣物这些“停滞感很重”的东西；保持明亮干净，就是在告诉自己“我欢迎新的机会”。",
+                en: "In 2025, you played it safe with money. 2026 is friendlier, suitable for spending on self-improvement: learning, health, skills. Don't chase quick riches; ask if the expense makes your future easier."
+            },
+            health: {
+                zh: "2025，你很多不开心，会变成身体的小毛病：头痛、睡不好、没胃口。\r\n\r\n2026，不一定会自动变健康，但你若愿意对自己好一点，恢复会很明显。生活里多安排一些真正让你放松的时刻——做喜欢的事、跟喜欢的人待在一起、给自己一点独处空间——这些都算在“保养”里。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 尽量用柔软的床品和触感舒服的材质，让每晚躺下时，身体都能自然放松。\r\n\r\n• 在家里选一处小角落当作“情绪休息区”：一把舒服的椅子、一本书、一盏柔光台灯，告诉自己——当心乱时，我有地方可以停一停。",
+                en: "In 2025, unhappiness became physical ailments. 2026 won't automatically fix health, but treating yourself well will speed recovery. Schedule relaxing moments—doing what you like, being with loved ones, solitude—as 'maintenance'."
+            },
+            career: {
+                zh: "2025，你在工作中的表现，往往比自己评价的好；只是你习惯淡淡地过，不太会主动说：“这件事是我做好了。”\r\n\r\n2026，这种低调认真，会开始被更多人看见。很多资料都提到，这一年对你来说是有“好机会＋贵人”的年份，只要你愿意在关键时刻举手，说一句“这块我可以试试看”，你会惊喜地发现自己其实做得到。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 工作桌上，可以放一只象征稳定的小摆件（比如小山、树、或简单的石头），提醒自己：我可以慢慢地、但持续地向上。\r\n\r\n• 将工作区靠墙摆放，背后有“靠”，有助于你在职场上更有安全感与决心。",
+                en: "In 2025, you performed better than you thought but stayed humble. In 2026, your diligence will be seen. It's a year of 'opportunities + nobles'. If you raise your hand and say 'I can try this', you'll surprise yourself."
+            },
+            luck: {
+                zh: "2025，是一盏帮你走出前两年疲惫的小灯；\r\n\r\n2026，则比较像一扇缓缓打开的窗——风景不会一下子全部出现，但每个月都会比上个月再亮一点。请温柔地对自己说：“我已经不在原点了，我正在变好。” 运气最喜欢这样的你。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 每当你完成一件让自己骄傲的小事，就在家里做一个很小的庆祝动作：插一束花、换一只靠垫套或点一支喜欢的香薰，让空间记住你的每一次向上。",
+                en: "2025 was a lamp guiding you out of fatigue; 2026 is a slowly opening window—scenery appears gradually, brighter each month. Gently tell yourself: 'I'm not where I started, I'm getting better.' Luck loves this version of you."
+            }
+        }
+    },
+    Dragon: {
+        icon: "🐲",
+        name: { zh: "龙", en: "Dragon" },
+        intro: {
+            zh: "亲爱的你： 你有气场、有担当，又不甘心平庸。过去一年像是从风浪中缓慢靠岸，而新的一年，则是在稍微平稳的海面上，重新规划航线。",
+            en: "Dear you: You have presence, responsibility, and refuse mediocrity. The past year was like docking from a storm; the new year is replanning the route on calmer seas."
+        },
+        sections: {
+            love: {
+                zh: "2025，大环境对你的感情算是“比去年轻松一点”，你更有心力照顾关系，也更愿意放下某些执念。\r\n\r\n2026，整体能量略有起伏，但并不糟：适合用更务实、更长线的角度看待亲密——少一点“要不要立刻给答案”，多一点“我们能不能一起慢慢调整”。关系里可能会有几次“现实问题”的讨论：钱、未来、家人……但这不是坏事，而是让你们有机会把长远生活说清楚。亲爱的你，别害怕这些谈话，它们是在替你筛选，谁是真正可以一起走远的人。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 如果你处在稳定关系中，可以在卧室床头放一张两个人看起来轻松自然的合照，把“我们一起，挺好的”放在每天醒来的第一眼。\r\n\r\n• 适度减少卧室里的金属、黑白配色，多一点木质与暖色布料，让亲密氛围更柔和。",
+                en: "In 2025, relationships were easier, and you let go of some obsessions. 2026 has fluctuations but isn't bad: view intimacy pragmatically and long-term. Less 'immediate answers', more 'adjusting together'. Don't dump pressure on the relationship, and it will last."
+            },
+            wealth: {
+                zh: "2025，对你来说，有一种“终于没那么卡”的感觉，财务上的麻烦事减少了一些。\r\n\r\n2026，收入方面有机会获得认可与加码，但支出也可能因为生活层级提升而跟着增加。你真正需要留意的，是情绪化消费和“凭感觉做决定”的投资。越是想翻身，就越要慢一点动钱。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 家中可以设一个“金钱角落”：摆放记账本、存钱罐或理财计划表，让你每月都有一次“和钱对话”的仪式。\r\n\r\n• 避免把账单散落在家中各处，分散的账单容易让你感觉“钱总是不够”，集中管理会让心更安。",
+                en: "In 2025, financial troubles eased. In 2026, income may rise, but so might expenses. Watch out for emotional spending and impulsive investments. The more you want to turn things around, the slower you should move money."
+            },
+            health: {
+                zh: "2025，你的身心状态整体在恢复，过去某些长期的紧绷有所缓解。\r\n\r\n2026，情绪容易受外界影响，有时会突然陷入低潮或莫名烦躁。试着建立几个「一看到就会安静下来的画面」——一首歌、一条路、一个地方，每当心乱的时候就去那里待一会，你会发现自己可以更温柔地度过这些波峰波谷。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 卧室尽量减少镜子正对床的情况，避免半夜醒来被自己的影子吓一跳，也有助于睡眠更安稳。\r\n\r\n• 在你常休息的区域（沙发、窗边）摆一盆生机良好的绿植，让视线每天都有“柔软落点”，降低紧绷感。",
+                en: "In 2025, you recovered from tension. In 2026, emotions may be affected by the outside world. Establish 'calming images'—a song, a path, a place. Go there when unsettled to weather the ups and downs gently."
+            },
+            career: {
+                zh: "2025，你在事业上有“被帮一把”的感觉，有些积压很久的事情终于被解决。\r\n\r\n2026，表现仍然被看好，只是会夹杂几次让你质疑自我的波动。记得：一两件没做好，不等于你不行；反而是提醒你要把节奏调整得更健康。稳住自己的标准——该要求高的地方继续高，该放过自己的地方就适度放过。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 工作区尽量简洁，避免锐利直冲你的尖角或梁柱，可以用布艺、植物做柔化，营造“压力可承接”的环境。\r\n\r\n• 在书桌侧方，放一本你非常认同的专业书或证书，像是一块“看得见的后盾”，提醒你：你是有实力的。",
+                en: "In 2025, you felt helped in your career. 2026 looks good, despite some self-doubt. One or two failures don't mean you're incapable; they remind you to adjust your pace. Maintain standards but know when to let go."
+            },
+            luck: {
+                zh: "2025，是让你从“被逼着扛”转为“比较能主动安排生活”的一年；\r\n\r\n2026，运气并不吝啬，只是更希望你用脚踏实地的方式去接住它。越是认真对待手上的事，越会有“明明还在同一份工作，却感觉自己站的位置不一样了”的惊喜。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 可以为自己设计一个小小“愿望角”，写下今年最重要的三件事，搭配象征它们的物品放在那儿，让家时刻提醒你：你的生活有方向。",
+                en: "2025 shifted you from 'forced to carry' to 'proactive planning'. 2026 offers luck to those who are grounded. Taking tasks seriously will bring the surprise of feeling like you're in a different position even in the same job."
+            }
+        }
+    },
+    Snake: {
+        icon: "🐍",
+        name: { zh: "蛇", en: "Snake" },
+        intro: {
+            zh: "亲爱的你： 你安静、敏锐，擅长在表面平静中观察一切。过去一年像是“对自己的一次大体检”，而新的一年，更像是“带着新生的皮，走向更大的世界”。",
+            en: "Dear you: You are quiet, sharp, and observant. The past year was a 'major checkup', and the new year is like walking into a bigger world with new skin."
+        },
+        sections: {
+            love: {
+                zh: "2025，对你而言是非常深刻的一年：感情里有旧模式被迫结束，也有新的可能悄悄出现。你更清楚自己能接受什么、不能再忍什么。\r\n\r\n2026，整体能量明显比去年轻松许多，更有利于把感情经营成“能一起成长”的样子。你可以放心一点地去相信：真正适合你的人，是能和你一起解决问题的人，而不是只在顺境陪笑的人。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 把卧室里象征过去伤口的东西（前任礼物、旧聊天截图等）尽量收起或处理掉，让空间只承载“正在发生的故事”。\r\n\r\n• 在床头放两只你喜欢的小饰物或抱枕，象征“有人可以并肩”，提醒自己：你不是只能一个人扛。",
+                en: "2025 was profound: old patterns ended, new possibilities emerged. You know your limits. 2026 is lighter, favoring 'growing together'. Trust that the right person solves problems with you, not just laughs with you in good times."
+            },
+            wealth: {
+                zh: "2025，你的钱多半花在“必要的调整”和“不得不的支出”上，压力不小，但同时也让你学会更务实地规划未来。\r\n\r\n2026，是一个“抬头的年份”：适合谋求更好的位置、薪水或方向，只要你肯提前准备，整体机会是向上的。金钱上，更像从“勉强撑住”慢慢走向“有余力规划”。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 审视一下你最常用的包包、钱包，避免破旧、拉链坏掉却一直没修的状态，换一个让自己看了会开心、也方便整理的容器。\r\n\r\n• 家中东南区域可以摆放一盆长势稳定的绿植，定期修剪枯叶，象征对财富的“持续维护而非一次性冲刺”。",
+                en: "In 2025, money went to necessary adjustments, teaching pragmatism. 2026 is a 'head-up year': seek better positions or pay. Opportunities are upward if prepared. Finances move from 'barely holding on' to 'planning with surplus'."
+            },
+            health: {
+                zh: "2025，你在精神和情绪上经历了一场脱壳，很多旧的压力、旧的伤口，都被翻出来看了一遍。\r\n\r\n2026，身体与心的修复力都在回升。只要你愿意给自己更温柔的生活节奏——吃得更规律一点、睡得再早一点、减少硬撑——你的状态会有肉眼可见的改善。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 在睡觉的地方保持干净、好打理，不要让灰尘在床底和角落长期堆积，避免“看不到的疲惫”越积越厚。\r\n\r\n• 可以在床边放一个小夜灯，光线柔和，让你起夜时不被黑暗惊吓，也象征“给自己多一点温柔的照拂”。",
+                en: "In 2025, you shed emotional skin, facing old wounds. In 2026, recovery increases. A gentler rhythm—regular meals, earlier sleep, less forcing—will visibly improve your state."
+            },
+            career: {
+                zh: "2025，是“边改边撑”的一年，你在工作上可能不太舒服，但又硬生生扛过来了。\r\n\r\n2026，是很适合向上跃迁的一年：换领域、换公司、争取晋升、争取更重要的位置，都比去年更有胜算。你已经脱了一层旧皮，现在可以考虑走到更匹配自己能力的地方。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 在工作区附近放一本空白笔记本，专门用来记录新的想法和机会，为下一步铺路，而不是只用来记“待办事项”。\r\n\r\n• 若工作位背后是门或空旷位置，可用屏风、植物或书柜做出“靠山感”，让你转变时更有勇气。",
+                en: "2025 was 'change and endure'. 2026 is for upward leaps: changing fields, companies, or promotion. You've shed the old skin; now go where your abilities are matched."
+            },
+            luck: {
+                zh: "2025，是你近年很关键的转折点；\r\n\r\n2026，则是“慢慢走上坡路”的阶段。请认真对自己说：“我已经穿过最难的一段，现在轮到好运慢慢追上我。” 当你愿意这样相信，很多机会就有了落脚的空间。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 定期给家里“通风＋小仪式”：打开窗、播放喜欢的音乐、简单打扫，让空间知道——你在欢迎新的生活章节。",
+                en: "2025 was a turning point; 2026 is the 'uphill climb'. Tell yourself: 'I've passed the hardest part, now luck is catching up.' Believing this gives opportunities space to land."
+            }
+        }
+    },
+    Horse: {
+        icon: "🐴",
+        name: { zh: "马", en: "Horse" },
+        intro: {
+            zh: "亲爱的你： 你热情、爱自由，不喜欢被束缚。过去一年像是在加速奔跑，而新的一年，更像是在复杂路况里学会“收油门”。",
+            en: "Dear you: You are enthusiastic, freedom-loving, and dislike restraint. The past year was speeding up; the new year is learning to 'ease off the gas' in complex conditions."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在人际和感情上人气不低，能量外放、关系热络，也更容易遇到有火花的互动。\r\n\r\n2026，整体环境对你并不算轻松，生活节奏多变，心里难免会有“怎么突然变难走了”的感觉。感情上，更容易因为外在压力（工作、家庭、金钱）影响心情，所以要记得：对重要的人，多一点耐心，少一点迁怒。学会在风大时，先把心收进安全的地方，而不是把矛头指向身边的人。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 卧室尽量避免电视、电脑长期开着，给相处留一些“不被打扰的时间和空间”。\r\n\r\n• 在两人常待的空间（沙发、餐桌）放一件象征“共同行动”的小物件，如一幅一起旅行的照片，提醒你们：压力再大，也是一队人一起面对。",
+                en: "In 2025, you were popular and energetic. 2026 is tougher, with variable rhythms. External pressures may affect relationships. Be patient with loved ones, don't vent anger. When the wind blows, shelter your heart instead of attacking others."
+            },
+            wealth: {
+                zh: "2025，你的能力和表现，有机会换来更好的资源和机会，金钱能量相对顺着你的行动而流动。\r\n\r\n2026，对金钱来讲，更像“收成＋考验并存”的一年：收入不一定差，但变数多，支出和突发状况也可能跟着变大。与其急着扩张，不如学会把手上已有的东西守稳、整理好，别轻易被短期诱惑牵着走。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 为自己设一个固定的“金钱检视日”，在家里的某个角落坐下来，查看账本和支出，给金钱管理一个稳定的节奏。\r\n\r\n• 尽量避免把钱包、卡片随手乱放在家中各个角落，集中放在一个让你有“尊重感”的地方。",
+                en: "In 2025, ability brought resources. 2026 is 'harvest + test': income may be good, but expenses and variables increase. Stabilize what you have rather than expanding; don't be led by short-term temptations."
+            },
+            health: {
+                zh: "2025，你忙得开心时容易忘记休息，情绪一兴奋就过度消耗。\r\n\r\n2026，生活多变、压力上升，更需要学会在奔跑中给自己“补给站”。哪怕是固定的一顿好好吃的饭、一段说走就走的散步，都是在提醒自己：你不是只负责表现，你也值得被照顾。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 在家里预留一个真正属于“休息”的位置：那里不办公、不刷工作消息，只做让自己放松的事，让大脑知道哪里是“安全区”。\r\n\r\n• 避免床边堆放垃圾桶、药品及尖锐金属工具，这些都会放大疲惫和紧张感。",
+                en: "In 2025, excitement led to overexertion. 2026 brings stress; you need 'supply stations'. A good meal or a walk reminds you: you're not just for performing, you deserve care too."
+            },
+            career: {
+                zh: "2025，你有不少向上发展的机会，只要愿意行动，常常能看到成绩。\r\n\r\n2026，舞台还在，但路面更颠簸。很多时候，不是让你停下，而是让你学会：\r\n\r\n• 如何在多变条件中保持清醒；\r\n\r\n• 如何在资源有限时选最要紧的事做。  \r\n  当你愿意沉下心，把“耀眼”换成“扎实”，这一年反而会为下一轮真正的起飞打下基础。\r\n  \r\n  居家风水小提醒（事业）：\r\n  \r\n  - 工作桌保持“可一眼看清当天重点”的状态，不让无关物品占据你的注意力。\r\n  \r\n  - 在门口放一块脚垫或小装饰，象征“把外面的杂乱留在门外”，进家门就是充电模式。",
+                en: "In 2025, action brought results. 2026 is bumpier. Learn to stay clear in change and prioritize with limited resources. Replacing 'dazzling' with 'solid' builds the foundation for the next takeoff."
+            },
+            luck: {
+                zh: "2025，是“贵人和机会齐来的年份”；\r\n\r\n2026，是“沉潜和调整的年份”。不要被表面的起伏吓到，告诉自己：“这不是我运气变差，而是好运要我先长大一点。” 当你愿意把这一年当成练功房，而不是审判场，压力就会慢慢转成底气。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 每当觉得被外界弄得心烦意乱，就花 10 分钟整理一个小区域（如书桌、一个抽屉），用“把空间理顺”来帮自己“把思绪理顺”。",
+                en: "2025 was full of nobles and chances; 2026 is for adjustment. Don't be scared by ups and downs. Tell yourself: 'Luck wants me to grow up.' Treat this year as a training ground, not a trial, and pressure becomes strength."
+            }
+        }
+    },
+    Goat: {
+        icon: "🐐",
+        name: { zh: "羊", en: "Goat" },
+        intro: {
+            zh: "亲爱的你： 你温柔、重感受，看似软，其实心里很有分寸。过去一年像是在学习照顾自己的心，而新的一年，则更像是“带着心去收成”。",
+            en: "Dear you: You are gentle and sensitive, but have inner boundaries. The past year was learning self-care; the new year is 'harvesting with heart'."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在关系里学会了多为自己想一点：不再一味顾及别人情绪，而是慢慢找平衡。\r\n\r\n2026，整体能量对你非常友好：有利于亲密关系的稳定与升级，也有利于遇见对你真心的人。你可以允许自己更有自信一点：你值得被温柔对待，你的需求也值得被认真听见。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 家中西南角可以设计成“温柔角”，放一些让你觉得被爱、被照顾的物品：家人合照、柔软抱枕、暖光灯。\r\n\r\n• 避免卧室堆满“必须完成的任务”（比如工作文件、未拆快递），让关系的空间不被压力占满。",
+                en: "In 2025, you learned to prioritize yourself. 2026 is very friendly: good for stable relationships and meeting sincere people. Be confident: you deserve gentleness and your needs deserve to be heard."
+            },
+            wealth: {
+                zh: "2025，你在钱的使用上，开始意识到“不能再为了让别人开心而乱花”。\r\n\r\n2026，金钱能量被看好，适合为自己的长期生活做规划——改善居住环境、为未来目标存钱、投资在自己的技能上。唯一要注意的，是避免因为过度乐观而忽略风险评估。记得：再好的年份，基本功都不能丢。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 挑一个你看了会觉得安心的收纳盒，专门放储蓄或计划性的资金，象征“钱是有方向的”。\r\n\r\n• 家中财富角保持清爽、明亮，避免杂乱或破损物件停留其间，减少“钱入不敷出”的暗示。",
+                en: "In 2025, you stopped spending to please others. 2026 looks good for wealth: plan for the long term—home, savings, skills. Avoid over-optimism and risk. Even in good years, keep the basics."
+            },
+            health: {
+                zh: "2025，你的精神状态比前一年好一些，但偶尔仍会陷入“没来由的累”。\r\n\r\n2026，整体发展非常亮眼，但身体体质可能略显疲弱，容易小病小痛反复出现。所以，就算再忙，也别把检查和休息往后拖。越是好运年，越要好好保护自己。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 在卧室或沙发旁放一个温水杯位，提醒自己按时喝水、吃药、休息，把照顾自己当成例行公事。\r\n\r\n• 多用柔软布艺、自然材质，减少冰冷金属和暗色堆叠，让空间更有治愈感。",
+                en: "In 2025, you felt better but occasionally tired. 2026 is bright, but your body may be weak with minor ailments. Don't delay checkups or rest. Protect yourself especially in lucky years."
+            },
+            career: {
+                zh: "2025，你在工作上更懂得保护自己，不再随便答应不合理的要求。\r\n\r\n2026，是非常适合向外伸手的一年：说出你的想法，争取更适合你的岗位与合作，敢要，也敢承担。许多资源和贵人，会在你开口之后出现，而不是提前等着你。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 让工作区有一点“自己的风格”，比如一盆植物、一幅画，帮助你在压力中也能记起：工作是生活的一部分，不是全部",
+                en: "In 2025, you protected yourself at work. 2026 is for reaching out: speak up, ask for positions, and take responsibility. Resources and nobles appear after you ask, not before."
+            },
+            luck: {
+                zh: "2025，是修复期；\r\n\r\n2026，是“喜庆丰收年”的能量：整体在走上坡，只要你不自我设限，很多看似不可能的事，都会有松动的机会。对自己说：“这一年，我可以期待好事连着来。” 它们真的会更愿意来找你。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 适时做一些“小小升级”，例如换一只更舒服的椅子或更明亮的灯，其实是在告诉自己：我配得上更好的生活。",
+                en: "2025 was repair; 2026 is 'joyful harvest'. It's an uphill path. Don't limit yourself, and impossible things may happen. Tell yourself: 'I can expect good things.' They will come."
+            }
+        }
+    },
+    Monkey: {
+        icon: "🐒",
+        name: { zh: "猴", en: "Monkey" },
+        intro: {
+            zh: "亲爱的你： 你机灵、好奇心强，喜欢尝试新鲜事。过去一年像是“社交和机会都在放大”，而新的一年，则更像“需要在低调中稳住自己”。",
+            en: "Dear you: You are clever, curious, and love new things. The past year amplified social life and opportunities; the new year requires staying steady in a low profile."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在人际和感情上都很热络，认识不少新朋友，暧昧和火花也不会少。\r\n\r\n2026，整体能量偏向“安静修整”：关系里要特别留意口舌是非与误会，越重要的人，越不要拿玩笑或情绪去赌。对待感情，真诚和收敛，比热闹更重要。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 卧室里的装饰可以从“很多零碎”改成“少而精”：留下真正让你有安全感、被爱感的物件，减少没有意义的小玩意，帮感情回到重点。",
+                en: "In 2025, social life was hot. 2026 leans towards 'quiet adjustment': beware of gossip and misunderstandings. Don't gamble with important relationships using jokes or emotions. Sincerity and restraint matter more than excitement."
+            },
+            wealth: {
+                zh: "2025，你在赚钱与机会上的嗅觉敏锐，常常能先一步看到好点子。\r\n\r\n2026，对金钱来说，是“适合把风险降到最低”的一年：看起来不错的机会，背后可能带着不少隐藏麻烦。与其到处撒，不如守住几个打底项目，把支出变得更有秩序。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 清理你的工作桌与电脑桌面，把与赚钱无关的杂乱应用和文件归档或删除，让注意力集中在真正带来收益的项目上。\r\n\r\n• 东南方位保持明亮整洁，可以放一株象征聪明与灵活的植物，让你的点子更容易变成实质回报。",
+                en: "In 2025, you spotted money-making ideas early. 2026 is for minimizing risk: good opportunities may hide trouble. Stick to foundational projects and organize expenses instead of scattering resources."
+            },
+            health: {
+                zh: "2025，你多半是“脑子和行程都停不下来”，真正休息的时间不多。\r\n\r\n2026，压力和心情波动，可能通过身体表现出来——睡眠、消化、免疫力都值得多关注。你最需要学的，是“把玩乐和放松，从消耗变成补充”。做完一件事就立刻排满下一件，不如留一点空白给自己。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 在你经常工作的空间加入一点柔和音乐或风铃，让紧绷的气氛不会长期凝结。",
+                en: "In 2025, you couldn't stop. 2026 may manifest stress physically—sleep, digestion, immunity need attention. Turn play and relaxation into replenishment, not consumption. Leave some blank space for yourself."
+            },
+            career: {
+                zh: "2025，你的社交与表达，为你争取到不少舞台，事业上有可见的机会。\r\n\r\n2026，事业并不是没机会，而是多了几层考验：特别是人际与小人议题。越是在公开场合，越要注意自己的说话方式与态度。把重心放回到真正的专业上，一年下来，反而能留下更扎实的成果。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 在工作区摆一只代表专注的小摆件，象征“少一点分心、多一点完成度”。\r\n\r\n• 若你在家办公，记得划清“办公区”和“休息区”，避免边躺床边工作，让大脑分不清什么时候该拼、什么时候该休息。",
+                en: "In 2025, social skills won you stages. 2026 brings tests, especially interpersonal ones. Watch your words in public. Focus on professionalism to leave solid results."
+            },
+            luck: {
+                zh: "2025，是机会密集的一年；\r\n\r\n2026，是要你“收心，别被外界牵着走”的一年。请对自己说：“我可以暂时走慢一点，但我要走得更准。”；“我要的不多，但要的要对。” 当你开始筛选，运气也会把更对的机会筛给你。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 定期做“小范围断舍离”，特别是对那些你其实不爱、只是“别人送的”的东西，说一句谢谢并放手，让生活变得更轻盈。",
+                en: "2025 was opportunity-dense; 2026 asks you to 'focus inward'. Tell yourself: 'I can go slow, but I must be accurate.' Organizing options will light up the right path."
+            }
+        }
+    },
+    Rooster: {
+        icon: "🐓",
+        name: { zh: "鸡", en: "Rooster" },
+        intro: {
+            zh: "亲爱的你： 你认真、讲原则，又有一点点完美主义。过去一年像是在把生活打理得更有条理，而新的一年，则更像是在“边闯关边被提醒要柔软一点”。",
+            en: "Dear you: You are serious, principled, and a bit of a perfectionist. The past year was organizing life; the new year is 'leveling up while learning to be softer'."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在关系里理性和责任感很强，重承诺、重实际，有时却容易忽略情绪层面的表达。\r\n\r\n2026，整体能量夹杂温暖与小考验：有贵人、有好缘分，但也容易因为说话太直接，引发误会或争执。越在乎的人，越要记得“先照顾对方的感受，再表达自己的观点”。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 可以在卧室或客厅放一点柔软布料、圆形摆件，削弱家中过于“尖锐、直线条”的感觉，让人际能量更柔和。",
+                en: "In 2025, you were rational and responsible but ignored emotions. 2026 mixes warmth and tests: nobles and good fate exist, but blunt words may cause conflict. Care for feelings before expressing views to those you value."
+            },
+            wealth: {
+                zh: "2025，你在金钱上偏向谨慎，有计划、有节制。\r\n\r\n2026，财运有机会向好发展，但同时也有“说错话得罪人、影响合作或资源”的风险。只要在关键场合保持专业与谦逊，你原本的认真细致就会自然转化成收入与机会。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 在工作区或家庭财务角附近放一盏稳定柔和的灯光，象征“看得清”、“算得清”，帮助你做更冷静的金钱决策。",
+                en: "In 2025, you were cautious with money. 2026 looks good, but beware of offending people and affecting resources. Professionalism and humility will turn your diligence into income."
+            },
+            health: {
+                zh: "2025，压力多半来自自己给自己的要求：要把事情做到最好，要兼顾所有人。\r\n\r\n2026，健康上要特别留意情绪累积带来的影响。学会不把所有事都追到极致，给自己一点犯错空间，身体才不需要用小毛病来提醒你“该停一停了”。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 卧室尽量保持简洁，不要让大量待办事项、工作工具侵入睡眠空间，让身体有真正的修复场域。",
+                en: "In 2025, pressure came from self-imposed perfectionism. 2026 requires watching emotional accumulation. Don't chase perfection; give yourself room to err, so your body doesn't have to stop you with ailments."
+            },
+            career: {
+                zh: "2025，你在职场的表现稳定可靠，是很多人眼中的“可以放心交给你”的那个人。\r\n\r\n2026，整体趋势是“有惊无险”：会有麻烦、也有贵人。只要你不被短期情绪带着起伏，对于职业形象的长期经营，这一年其实是加分的。记得少一点争对错，多一点解决问题。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 在书桌或办公区摆放一个你完成过的重要成果（证书、奖状、作品），提醒自己：你已经做得很好，不必事事苛到底。",
+                en: "In 2025, you were reliable. 2026 is 'safe despite scares': troubles and nobles co-exist. Don't let emotions sway you. Long-term career image will improve. Argue less about right/wrong, solve more problems."
+            },
+            luck: {
+                zh: "2025，是在细节里悄悄攒运气的一年；\r\n\r\n2026，是“遇事不慌，就能逢凶化吉”的一年。你越温和、越真诚，越容易在关键时刻得到别人伸出的一只手。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 试着让家里的中间区域保持尽量开阔，不要堆高杂物，让能量可以流动，象征遇事时你也能多几条退路与选择。",
+                en: "2025 was saving luck in details; 2026 is 'calmness brings good fortune'. Gentleness and sincerity will bring help in critical moments."
+            }
+        }
+    },
+    Dog: {
+        icon: "🐶",
+        name: { zh: "狗", en: "Dog" },
+        intro: {
+            zh: "亲爱的你： 你真诚、有原则，很重视“对还是错”。过去一年像是在收获努力的果实，而新的一年，则更像是在“高光中继续稳住自己”。",
+            en: "Dear you: You are sincere, principled, and value right vs wrong. The past year was harvesting; the new year is 'staying steady in the spotlight'."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在感情里的状态整体不错，有机会体验到“被看见、被珍惜”的温暖。\r\n\r\n2026，情感运势依然亮眼，不少资料都提到：这是一年“事业与感情双丰收”的能量，只是要小心因为太忙、太自信，而忽略了对方的感受。记得在所有风光时刻里，留一块位置给那个始终站在你这边的人。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 在卧室或客厅的显眼处，放一张两人轻松愉快的合照，让你每天都被提醒：有个人在支持你。\r\n\r\n• 尽量保持卧室温馨整洁，不让工作气氛侵入，让关系有一个只属于亲密与休息的空间。",
+                en: "In 2025, relationships were warm. 2026 is bright, promising 'career and love success'. But don't ignore your partner due to busyness or overconfidence. Save a spot in your glory for those who stood by you."
+            },
+            wealth: {
+                zh: "2025，是你看得到成果的一年，努力和回报的对应度，比以前更高。\r\n\r\n2026，正财偏财都有发挥空间，只要你守住底线、不盲目扩张，财运容易一路向上。唯一需要注意的，是别因为连胜几次就减少基本的谨慎——越是顺的时候，越要记得替自己留后路。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 定期整理你的线上订阅、自动扣款项目，取消不再需要的支出，让财富流向更干净。\r\n\r\n• 在东南角适度增加象征稳定的元素（如木质家具、健康绿植），帮助你在扩张的同时保住根基。",
+                en: "In 2025, effort matched reward. 2026 offers wealth potential if you keep boundaries and don't expand blindly. Don't lose caution after wins—leave a way out even when things go smoothly."
+            },
+            health: {
+                zh: "2025，你整体状态不错，就是容易在忙碌中忽略休息细节。\r\n\r\n2026，需留心突发的小意外与过劳带来的身体紧绷。把安全和休息当成不可妥协的底线，能让你在好年份里，既拿到成绩，也保住健康。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 在家中经常活动的通道尽量保持通畅，避免堆满箱子、杂物，降低磕磕碰碰的几率。",
+                en: "In 2025, you ignored rest. 2026 requires caution against accidents and overwork. Make safety and rest non-negotiable to keep health while achieving results."
+            },
+            career: {
+                zh: "2025，你在职场中已经有“被肯定”的迹象，有些人开始主动来找你合作。\r\n\r\n2026，是很适合“往上走一阶”的一年：更有责任、更大的舞台、更广的人脉。你要做的，是保持谦逊，别因为一时的掌声而远离了当初那份认真和踏实。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 工作桌可以摆放象征领导力的物件（例如小山峰、简洁的奖杯造型），提醒你允许自己站到更显眼的位置上。",
+                en: "In 2025, you were affirmed. 2026 is for 'stepping up': more responsibility, bigger stage. Stay humble and don't let applause distance you from your diligence."
+            },
+            luck: {
+                zh: "2025，像是帮你把门打开的一年；\r\n\r\n2026，则像是邀请你从门里走出去的一年。请勇敢一点对自己说：“我配得上更大的舞台。” 当你敢站出去，运气就会继续推你往前。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 玄关保持明亮、整洁、有一点“欢迎感”，让每一次出门与回家，都像是在给自己一个加油的仪式。",
+                en: "2025 opened the door; 2026 invites you out. Boldly say: 'I deserve a bigger stage.' Dare to stand out, and luck will push you forward."
+            }
+        }
+    },
+    Pig: {
+        icon: "🐷",
+        name: { zh: "猪", en: "Pig" },
+        intro: {
+            zh: "亲爱的你： 你温厚、重情，也很懂得享受生活中的小幸福。过去一年像是在适应变化，而新的一年，则更像“终于轮到你扬眉吐气”。",
+            en: "Dear you: You are warm, sentimental, and enjoy small happiness. The past year was adapting; the new year is 'finally your time to shine'."
+        },
+        sections: {
+            love: {
+                zh: "2025，你在感情和人际上，有不少新体验、新场景，心也跟着被打开一点。\r\n\r\n2026，很多资料都直接点名：这是对你特别友善的一年，整体能量强、喜事机会多。无论是稳定关系的深化，还是开启一段新缘分，都更容易出现“顺着走就很好”的感觉。你只要保持真诚，不需要刻意表现，幸福感就会不请自来。\r\n\r\n居家风水小提醒（感情）：\r\n\r\n• 卧室尽量保持柔和色调，可以多用米色、浅粉、暖白，让每次回到房间都有“被拥抱”的感觉。\r\n\r\n• 在西南角放一些成双成对的小物件（成对的抱枕、杯子等），为稳定而甜的关系“打灯”。",
+                en: "In 2025, you had new experiences. 2026 is especially friendly: strong energy, many happy events. Relationships deepen or start smoothly. Just be sincere; happiness will come uninvited."
+            },
+            wealth: {
+                zh: "2025，你可能开始尝试一些新方向，例如换工作、换城市、换合作方式，收入结构也有变化的倾向。\r\n\r\n2026，对金钱而言，是收成＋放大的年份：工作表现、贵人助力，都会带来明显的提升机会。唯一要注意的，就是避免因为“终于宽裕了”而放飞自我——适度享受可以，但别把未来的安全感透支太多。\r\n\r\n居家风水小提醒（财运）：\r\n\r\n• 检查家中财富角是否光线足、无破损物件，避免坏掉的灯具或电器长期摆在那一块。\r\n\r\n• 整理钱包，保留干净、完整的纸钞，减少零散硬币和废票据，让财富能量看起来、感受起来都很舒畅。",
+                en: "In 2025, you tried new directions. 2026 is 'harvest + amplification': performance and nobles bring improvement. Avoid overindulgence due to newfound wealth—don't overdraw future security."
+            },
+            health: {
+                zh: "2025，你在适应变化的过程中，情绪与体力都有一点起伏。\r\n\r\n2026，整体状态比去年轻松许多，只要保持作息大致规律，不故意消耗自己，身体会很配合你。偶尔给自己安排一点“真正放空”的时刻，不带罪恶感地休息，你会发现自己越来越有精神。\r\n\r\n居家风水小提醒（健康）：\r\n\r\n• 卧室尽量保持空气流通和适宜光线，避免长时间紧闭门窗，让能量和空气都变得沉闷",
+                en: "In 2025, you had ups and downs. 2026 is easier. Keep regular hours and don't exhaust yourself. Schedule guilt-free 'spacing out' moments to recharge."
+            },
+            career: {
+                zh: "2025，是一个「尝试+过渡」的年份，你在职业路线上开始思考“我真正想过怎样的生活”。\r\n\r\n2026，是很适合你大胆发光的一年：表现空间多、被肯定的机会也多。只要你愿意比以前再主动半步——愿意提案、愿意争取、愿意站到前面——很多好消息会因你的一句“我可以试试”而发生。\r\n\r\n居家风水小提醒（事业）：\r\n\r\n• 在工作区摆一只象征稳步前进的小摆件（例如小船、马、山坡图案），给自己一个视觉暗示：慢慢走，也是在往前走。",
+                en: "2025 was transition. 2026 is for shining: more space, more affirmation. Take a half-step forward—propose, strive, stand in front—and good news will follow."
+            },
+            luck: {
+                zh: "2025，是暖场；\r\n\r\n2026，是“真正扬眉吐气的一年”。请认真地在心里种下一句暗示：\r\n\r\n> “这一年，轮到幸运喜欢我了。”\r\n\r\n当你用这样的信念去看待生活，它就会在细节里不断给你回应：好消息、好合作、好缘分，会一件件走进来。\r\n\r\n居家风水小提醒（整体运势）：\r\n\r\n• 每当你收到好消息，就在家里做一个很小的“喜事回音”：点一支香薰、换一张桌布、写下感谢的几句话，让家帮你把好能量留住并放大。",
+                en: "2025 was the warm-up; 2026 is your time. Plant this suggestion: 'This year, luck likes me.' With this belief, life will respond with good news, cooperation, and fate."
+            }
+        }
+    }
+};
