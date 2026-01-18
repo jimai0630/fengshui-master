@@ -236,9 +236,9 @@ const ConsultationPage: React.FC = () => {
                         email: record.email,
                         nickname: record.nickname || '',
                         birthDate: record.birth_date,
-                        gender: record.gender,
-                        benmingStarNo: record.benming_star_no || '',
-                        benmingStarName: record.benming_star_name || ''
+                        gender: record.gender as '男' | '女',
+                        benmingStarNo: record.benming_star_no ? Number(record.benming_star_no) : undefined,
+                        benmingStarName: record.benming_star_name
                     };
 
                     const houseType = record.house_type as HouseType;
@@ -251,8 +251,8 @@ const ConsultationPage: React.FC = () => {
                     setUserData(userData);
                     setHouseType(houseType);
                     setFloorPlans(floorPlans);
-                    setConsultationId(record.id);
-                    setConversationId(record.conversation_id || '');
+                    setConsultationId(record.id || '');
+                    setConversationId(record.layout_conversation_id || record.energy_conversation_id || '');
 
                     if (layoutGridResult) {
                         setLayoutGridResult(layoutGridResult);
@@ -271,7 +271,9 @@ const ConsultationPage: React.FC = () => {
                         console.log('[PaymentRecovery] Report still generating, starting polling');
                         setCurrentStep('report');
                         setHasPaid(record.payment_completed || false);
-                        startReportPolling(record.id);
+                        if (record.id) {
+                            startReportPolling(record.id);
+                        }
                     }
 
                     console.log('[PaymentRecovery] Session restored successfully');

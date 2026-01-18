@@ -55,6 +55,12 @@ export interface ConsultationRecord {
     payment_id?: string;
     paid_at?: string; // Timestamp when payment was completed
 
+    // Optional legacy fields (for backwards compatibility)
+    nickname?: string;
+    benming_star_no?: string;
+    benming_star_name?: string;
+    conversation_id?: string; // Alias for layout_conversation_id
+
     // Metadata
     created_at?: string;
     updated_at?: string;
