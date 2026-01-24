@@ -133,7 +133,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     isOpen, 
     onClose, 
     onPaymentSuccess,
-    amount = 29.99,
+    amount = 9.90,
     consultationId
 }) => {
     const { t } = useTranslation();

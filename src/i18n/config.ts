@@ -253,7 +253,7 @@ i18n
                     payment: {
                         title: "Complete Your Purchase",
                         package: "Complete Feng Shui Report",
-                        price: "29.99",
+                        price: "9.90",
                         oneTime: "One-time payment",
                         included: "What's Included:",
                         feature1: "Complete 2026 energy forecast",
@@ -291,7 +291,7 @@ i18n
                         },
                         pricing: {
                             title: "Pricing",
-                            content: "Free: Preview of the demo report and checklist.\n$29.99: Full Home Energy Report (one-time, no auto-renewal) for one property and one set of birth details.\n$49.99: Report + 30-minute expert Q&A (scheduled via email after purchase).\nAdd-ons: Additional floor or unit maps can be added on request.\nAll prices are in USD; local taxes or processing fees may apply."
+                            content: "Free: Preview of the demo report and checklist.\n$9.90: Full Home Energy Report (one-time, no auto-renewal) for one property and one set of birth details.\n$49.99: Report + 30-minute expert Q&A (scheduled via email after purchase).\nAdd-ons: Additional floor or unit maps can be added on request.\nAll prices are in USD; local taxes or processing fees may apply."
                         },
                         about: {
                             title: "About Us",
@@ -585,7 +585,7 @@ i18n
                     payment: {
                         title: "完成购买",
                         package: "完整风水报告",
-                        price: "29.99",
+                        price: "9.90",
                         oneTime: "一次性付款",
                         included: "包含内容：",
                         feature1: "完整的2026年能量预测",
@@ -623,7 +623,7 @@ i18n
                         },
                         pricing: {
                             title: "定价方案",
-                            content: "• 基础版 (免费)：订阅即可获取2025~2026年十二生肖流年运势指南。\n\n• 完整风水报告 ($29.99)：包含详细的居家风水能量分析、针对性布局建议及五大维度（爱情、财运、事业、健康、运气）的深入预测。一次性付费，无自动续费。\n\n所有价格均为美元(USD)。"
+                            content: "• 基础版 (免费)：订阅即可获取2025~2026年十二生肖流年运势指南。\n\n• 完整风水报告 ($9.90)：包含详细的居家风水能量分析、针对性布局建议及五大维度（爱情、财运、事业、健康、运气）的深入预测。一次性付费，无自动续费。\n\n所有价格均为美元(USD)。"
                         },
                         about: {
                             title: "关于我们",
