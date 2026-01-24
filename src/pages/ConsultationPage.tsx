@@ -35,7 +35,7 @@ import type {
     ProcessingStage
 } from '../types/dify';
 
-const REPORT_PRICE = 29; // Fixed price for report
+const REPORT_PRICE = 9.9; // Fixed price for report
 
 /**
  * 安全地解码 base64 PDF 字符串
